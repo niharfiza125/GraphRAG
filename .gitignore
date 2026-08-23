@@ -1,0 +1,33 @@
+# Environment variables (contains API keys!)
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environment
+myenv/
+venv/
+env/
+ENV/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Large/generated data files (adjust if you want to keep these)
+graph_store.pkl
+graph_data.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+*.swp
+
+# Logs
+*.log

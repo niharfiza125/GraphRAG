@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Copyright & Governance — Knowledge Graph</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg:           #0a0e1a;
+    --surface:      #111827;
+    --border:       #1e2d45;
+    --text:         #e2e8f0;
+    --text-muted:   #64748b;
+    --accent:       #38bdf8;
+
+    --c-org:        #4ECDC4;
+    --c-person:     #FF6B6B;
+    --c-leg:        #60a5fa;
+    --c-case:       #FBBF24;
+    --c-concept:    #86efac;
+    --c-gov:        #c084fc;
+    --c-ai:         #fb923c;
+    --c-other:      #94a3b8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ─────────────────────────────────────────────────── */
+  header {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .stats {
+    margin-left: auto;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    gap: 16px;
+  }
+
+  .stats span { color: var(--text); }
+
+  /* ── Layout ──────────────────────────────────────────────────── */
+  .layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Sidebar ─────────────────────────────────────────────────── */
+  .sidebar {
+    width: 220px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+
+  .sidebar-section {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+  }
+
+  /* ── Legend items ────────────────────────────────────────────── */
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 6px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.15s;
+    user-select: none;
+  }
+
+  .legend-item:hover { background: rgba(255,255,255,0.04); }
+  .legend-item.disabled { opacity: 0.3; }
+
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .legend-name {
+    font-size: 12px;
+    color: var(--text);
+    flex: 1;
+  }
+
+  .legend-count {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  /* ── Search ──────────────────────────────────────────────────── */
+  .search-wrap { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+
+  input[type="search"] {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  input[type="search"]:focus { border-color: var(--accent); }
+  input[type="search"]::placeholder { color: var(--text-muted); }
+
+  /* ── Controls ────────────────────────────────────────────────── */
+  .controls { padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+
+  .control-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .control-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  .btn-row { display: flex; gap: 6px; margin-top: 4px; }
+
+  button {
+    flex: 1;
+    padding: 6px 8px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  button:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Canvas ──────────────────────────────────────────────────── */
+  #graph-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  svg { width: 100%; height: 100%; }
+
+  /* ── Links ───────────────────────────────────────────────────── */
+  .link {
+    stroke: #1e3a5f;
+    stroke-opacity: 0.7;
+    stroke-width: 1.5px;
+    transition: stroke 0.2s, stroke-opacity 0.2s;
+  }
+
+  .link.highlighted { stroke: var(--accent); stroke-opacity: 1; stroke-width: 2px; }
+  .link.dimmed      { stroke-opacity: 0.08; }
+
+  /* ── Edge labels ─────────────────────────────────────────────── */
+  .edge-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    fill: #334155;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .edge-label.visible { opacity: 1; }
+
+  /* ── Nodes ───────────────────────────────────────────────────── */
+  .node circle {
+    stroke: rgba(255,255,255,0.15);
+    stroke-width: 1.5px;
+    cursor: pointer;
+    transition: stroke 0.15s, stroke-width 0.15s, filter 0.15s;
+  }
+
+  .node circle:hover {
+    stroke: white;
+    stroke-width: 2.5px;
+    filter: brightness(1.3);
+  }
+
+  .node.selected circle { stroke: white; stroke-width: 3px; filter: brightness(1.4); }
+  .node.dimmed circle   { opacity: 0.12; }
+  .node.dimmed text     { opacity: 0.05; }
+
+  .node text {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11px;
+    fill: var(--text);
+    pointer-events: none;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    transition: opacity 0.2s;
+  }
+
+  /* ── Tooltip ─────────────────────────────────────────────────── */
+  #tooltip {
+    position: absolute;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 13px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    max-width: 260px;
+    z-index: 10;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+
+  #tooltip.visible { opacity: 1; }
+
+  .tt-name {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 3px;
+    color: var(--text);
+  }
+
+  .tt-type {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+
+  .tt-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin-bottom: 6px;
+  }
+
+  .tt-connections {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+    padding-top: 6px;
+    margin-top: 4px;
+  }
+
+  .tt-connections span { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Knowledge Graph — AI Copyright &amp; Governance</h1>
+  <div class="stats">
+    nodes <span id="stat-nodes">—</span> &nbsp;|&nbsp;
+    edges <span id="stat-edges">—</span> &nbsp;|&nbsp;
+    communities <span id="stat-communities">—</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ── Sidebar ─────────────────────────────────────── -->
+  <aside class="sidebar">
+
+    <div class="search-wrap">
+      <input type="search" id="search" placeholder="Search nodes…">
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Entity Types</div>
+      <div id="legend"></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Controls</div>
+      <div class="controls">
+        <div class="control-row">
+          <div class="control-label">Link distance</div>
+          <input type="range" id="link-distance" min="40" max="300" value="120">
+        </div>
+        <div class="control-row">
+          <div class="control-label">Charge strength</div>
+          <input type="range" id="charge" min="-800" max="-50" value="-300">
+        </div>
+        <div class="control-row">
+          <div class="control-label">Edge labels</div>
+          <input type="range" id="label-threshold" min="0" max="10" value="3"
+                 title="Show labels on edges connecting nodes with degree ≥ this value">
+        </div>
+        <div class="btn-row">
+          <button id="btn-reset">Reset zoom</button>
+          <button id="btn-all">Show all</button>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── Graph canvas ────────────────────────────────── -->
+  <div id="graph-container">
+    <svg id="graph">
+      <defs>
+        <marker id="arrow" viewBox="0 -4 10 8" refX="18" refY="0"
+                markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,-4L10,0L0,4" fill="#1e3a5f"/>
+        </marker>
+      </defs>
+      <g id="root"></g>
+    </svg>
+    <div id="tooltip"></div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// DATA — injected by Python
+// ═══════════════════════════════════════════════════════════════════════════
+const GRAPH_DATA = {"nodes": [{"id": "U.S. COPYRIGHT OFFICE", "label": "U.S. COPYRIGHT OFFICE", "type": "GOVERNMENT", "description": "Government office that issues guidance on copyright registration requirements, including human authorship."}, {"id": "THALER", "label": "THALER", "type": "PERSON", "description": "An individual whose application for copyrighting an AI-generated work was rejected due to lack of human authorship."}, {"id": "STABILITY AI", "label": "STABILITY AI", "type": "ORGANIZATION", "description": "An AI company that publicly released Stable Diffusion and documented its training data."}, {"id": "MIDJOURNEY", "label": "MIDJOURNEY", "type": "AI_SYSTEM", "description": "An image-generation AI system that creates visual representations from text prompts."}, {"id": "DEVIANTART", "label": "DEVIANTART", "type": "ORGANIZATION", "description": "An online platform for artists facing legal claims regarding the unauthorized use of images for AI training."}, {"id": "OPENAI", "label": "OPENAI", "type": "ORGANIZATION", "description": "An artificial intelligence research organization that acknowledged the necessity of copyrighted material for training effective AI models."}, {"id": "META", "label": "META", "type": "ORGANIZATION", "description": "A technology company facing legal challenges regarding the unauthorized use of copyrighted materials to train generative AI models."}, {"id": "MICROSOFT", "label": "MICROSOFT", "type": "ORGANIZATION", "description": "A technology corporation sued alongside OpenAI for AI copyright infringement."}, {"id": "THE NEW YORK TIMES", "label": "THE NEW YORK TIMES", "type": "ORGANIZATION", "description": "A media organization that filed a copyright infringement lawsuit against OpenAI and Microsoft."}, {"id": "STABLE DIFFUSION", "label": "STABLE DIFFUSION", "type": "AI_SYSTEM", "description": "A generative AI model whose outputs and dataset inputs are analyzed regarding derivative copyright claims."}, {"id": "ANDERSEN V. STABILITY AI", "label": "ANDERSEN V. STABILITY AI", "type": "LEGAL_CASE", "description": "A high-profile copyright lawsuit brought by a group of artists against Stability AI, Midjourney, and DeviantArt."}, {"id": "GENERATIVE AI COPYRIGHT DISCLOSURE ACT OF 2024", "label": "GENERATIVE AI COPYRIGHT DISCLOSURE ACT OF 2024", "type": "LEGISLATION", "description": "Proposed law requiring AI developers to disclose copyrighted works present in their training datasets."}, {"id": "U.S. CONGRESS", "label": "U.S. CONGRESS", "type": "GOVERNMENT", "description": "The legislative branch of the United States government where AI disclosure and copyright bills are introduced."}, {"id": "FAIR USE DOCTRINE", "label": "FAIR USE DOCTRINE", "type": "CONCEPT", "description": "Legal doctrine within copyright law relevant to training data considerations and output liability in generative AI."}, {"id": "NO AI FRAUD ACT", "label": "NO AI FRAUD ACT", "type": "LEGISLATION", "description": "Proposed US legislation aimed at establishing protections against unauthorized AI voice and image replicas."}, {"id": "EUROPEAN UNION", "label": "EUROPEAN UNION", "type": "GOVERNMENT", "description": "A regional authority that enforces a 'sui generis' legal right to protect database content."}, {"id": "AI ACT", "label": "AI ACT", "type": "LEGISLATION", "description": "European legislation imposing transparency obligations and dataset summaries on general-purpose AI models."}, {"id": "BEIJING INTERNET COURT", "label": "BEIJING INTERNET COURT", "type": "GOVERNMENT", "description": "A court in China that granted copyright protection to an AI-generated image created with demonstrable human effort."}, {"id": "CHINA", "label": "CHINA", "type": "GOVERNMENT", "description": "A sovereign country that legally recognizes AI-generated works when there is clear human intellectual effort."}, {"id": "UNITED STATES", "label": "UNITED STATES", "type": "GOVERNMENT", "description": "A nation whose legal framework conditions database copyright protection on the originality of selection or arrangement."}, {"id": "THALER V. PERLMUTTER", "label": "THALER V. PERLMUTTER", "type": "LEGAL_CASE", "description": "Court case examining legal copyrightability and authorship regarding artificial intelligence."}, {"id": "NEGAR BONDARI", "label": "NEGAR BONDARI", "type": "PERSON", "description": "Author credited on the analysis of AI, copyright, and ongoing legal battles."}, {"id": "NY TIMES", "label": "NY TIMES", "type": "ORGANIZATION", "description": "A major news publisher that filed a landmark copyright lawsuit against AI developers."}, {"id": "STABILITY AI LTD.", "label": "STABILITY AI LTD.", "type": "ORGANIZATION", "description": "An AI company sued by visual artists over copyrighted works used in AI image generation models."}, {"id": "SALAZAR", "label": "SALAZAR", "type": "PERSON", "description": "A US lawmaker who introduced federal legislative protections against unauthorized AI voice and likeness duplication."}, {"id": "EU AI ACT", "label": "EU AI ACT", "type": "LEGISLATION", "description": "European Union regulation establishing transparency standards for AI models and training data."}, {"id": "ANDERSEN V. STABILITY AI LTD.", "label": "ANDERSEN V. STABILITY AI LTD.", "type": "LEGAL_CASE", "description": "A class action copyright infringement lawsuit filed by artists against generative AI companies."}, {"id": "HUMAN AUTHORSHIP", "label": "HUMAN AUTHORSHIP", "type": "CONCEPT", "description": "A constitutional requirement for copyright protection requiring creative works to be created by a human author."}, {"id": "GENERATIVE AI", "label": "GENERATIVE AI", "type": "CONCEPT", "description": "Artificial intelligence models that are trained on large datasets, often collected via web scraping, to generate text or media."}, {"id": "WORLD INTELLECTUAL PROPERTY ORGANIZATION", "label": "WORLD INTELLECTUAL PROPERTY ORGANIZATION", "type": "ORGANIZATION", "description": "A global international agency studying the legal, economic, and procedural impacts of AI on IP systems."}, {"id": "MEMBER STATES", "label": "MEMBER STATES", "type": "GOVERNMENT", "description": "Sovereign governments participating in WIPO discussions to formulate IP policies for frontier technologies."}, {"id": "COPYRIGHT LAW", "label": "COPYRIGHT LAW", "type": "LEGISLATION", "description": "Legal framework governing creative works, often used in debates surrounding AI model training and web-scraping."}, {"id": "INTELLECTUAL PROPERTY", "label": "INTELLECTUAL PROPERTY", "type": "CONCEPT", "description": "The legal, social, and cultural framework underpinning creative production and rights ownership."}, {"id": "LARGE LANGUAGE MODELS", "label": "LARGE LANGUAGE MODELS", "type": "CONCEPT", "description": "Large-scale AI models specialized in natural language processing using vast corpora and billions of parameters."}, {"id": "TRAINING DATA", "label": "TRAINING DATA", "type": "CONCEPT", "description": "Data materials utilized to train GAI models, embedding visual representations, semantics, and inherent biases."}, {"id": "WIPO", "label": "WIPO", "type": "ORGANIZATION", "description": "World Intellectual Property Organization, tracking IP metrics such as domain name dispute procedures."}, {"id": "GENAI", "label": "GENAI", "type": "AI_SYSTEM", "description": "Generative Artificial Intelligence technologies that impact creative innovation and raise complex questions around input data and output IP protection."}, {"id": "WIPO CONVERSATION", "label": "WIPO CONVERSATION", "type": "CONCEPT", "description": "A regular international forum organized by WIPO to engage stakeholders and Member States on IP, AI, and frontier technologies."}, {"id": "PATENT SYSTEM", "label": "PATENT SYSTEM", "type": "CONCEPT", "description": "The legal and administrative framework for granting patents, facing administrative and regulatory challenges from AI inventions."}, {"id": "AI INVENTIONS", "label": "AI INVENTIONS", "type": "CONCEPT", "description": "Inventions created with or by artificial intelligence systems, requiring standardized patent examination standards."}, {"id": "NIXON PEABODY", "label": "NIXON PEABODY", "type": "ORGANIZATION", "description": "A law firm providing analysis and legal guidance on intellectual property and generative AI."}, {"id": "US COPYRIGHT ACT OF 1976", "label": "US COPYRIGHT ACT OF 1976", "type": "LEGISLATION", "description": "United States copyright legislation that requires a human author for copyright eligibility."}, {"id": "US COPYRIGHT OFFICE", "label": "US COPYRIGHT OFFICE", "type": "GOVERNMENT", "description": "Government agency that regulates copyright registration and denies registration to works with low human intervention."}, {"id": "DABUS", "label": "DABUS", "type": "AI_SYSTEM", "description": "An AI system created by Stephen Thaler subject to legal battles regarding autonomous inventorship and authorship."}, {"id": "DABUS LITIGATION", "label": "DABUS LITIGATION", "type": "LEGAL_CASE", "description": "A series of global court matters testing whether an AI system can be recognized as a legal inventor on a patent application."}, {"id": "USPTO", "label": "USPTO", "type": "GOVERNMENT", "description": "United States Patent and Trademark Office, requiring significant human contribution for AI-related patent filings."}, {"id": "DC CIRCUIT", "label": "DC CIRCUIT", "type": "GOVERNMENT", "description": "A US federal appellate court that ruled works created solely by AI without significant human involvement are ineligible for copyright."}, {"id": "FAIR USE", "label": "FAIR USE", "type": "CONCEPT", "description": "A legal doctrine in copyright law that permits limited use of copyrighted material without permission, determined ex-post by courts."}, {"id": "Nixon Peabody", "label": "Nixon Peabody", "type": "ORGANIZATION", "description": "An intellectual property law firm providing guidance on AI governance and legal risk mitigation."}, {"id": "Generative AI Copyright Disclosure Act of 2024", "label": "Generative AI Copyright Disclosure Act of 2024", "type": "LEGISLATION", "description": "Proposed US legislation requiring generative AI model developers to disclose training datasets."}, {"id": "US Congress", "label": "US Congress", "type": "GOVERNMENT", "description": "The legislative body of the United States government that introduced the Generative AI Copyright Disclosure Act of 2024."}, {"id": "US Copyright Office", "label": "US Copyright Office", "type": "GOVERNMENT", "description": "US government agency that regulates copyright registration and guidance regarding machine-generated content."}, {"id": "EU AI Act", "label": "EU AI Act", "type": "LEGISLATION", "description": "European Union law that regulates artificial intelligence with an emphasis on transparency and IP rights."}, {"id": "Generative AI Models", "label": "Generative AI Models", "type": "AI_SYSTEM", "description": "Autonomous systems and software models trained on datasets to produce generative content."}, {"id": "Copyrighted Material", "label": "Copyrighted Material", "type": "CONCEPT", "description": "Protected creative works used without authorization in AI training datasets."}, {"id": "Fair Use", "label": "Fair Use", "type": "CONCEPT", "description": "A legal doctrine allowing limited use of copyrighted material without permission if deemed transformative."}, {"id": "Human Oversight", "label": "Human Oversight", "type": "CONCEPT", "description": "Internal policy requirement ensuring human review of AI-generated content before publication."}, {"id": "AI-GENERATED WORKS", "label": "AI-GENERATED WORKS", "type": "CONCEPT", "description": "Content created with AI tools, eligible for copyright protection only when accompanied by significant human creative contribution."}, {"id": "HUMAN INTELLECTUAL EFFORT", "label": "HUMAN INTELLECTUAL EFFORT", "type": "CONCEPT", "description": "The creative contribution, oversight, and original input required from humans to make AI-assisted content copyrightable."}, {"id": "IP FRAMEWORKS", "label": "IP FRAMEWORKS", "type": "CONCEPT", "description": "Global legal systems and standards defining and enforcing intellectual property rights."}, {"id": "ADNAN MASOOD", "label": "ADNAN MASOOD", "type": "PERSON", "description": "Author of the article and PhD expert analyzing intellectual property rights, AI governance, and copyright law implications."}, {"id": "GENERATIVE ARTIFICIAL INTELLIGENCE", "label": "GENERATIVE ARTIFICIAL INTELLIGENCE", "type": "AI_SYSTEM", "description": "Advanced AI technology that creates content, raising key legal questions about human authorship, training data, and fair use."}, {"id": "MEDIUM", "label": "MEDIUM", "type": "ORGANIZATION", "description": "Online publishing platform where the analysis on AI copyright was published."}, {"id": "DREYFUS", "label": "DREYFUS", "type": "ORGANIZATION", "description": "An intellectual property law firm that supports companies, laboratories, and creators in protecting and valorizing innovations."}, {"id": "UNITED KINGDOM", "label": "UNITED KINGDOM", "type": "GOVERNMENT", "description": "Jurisdiction whose judicial system addressed AI inventorship in patent cases."}, {"id": "INFOSOC DIRECTIVE", "label": "INFOSOC DIRECTIVE", "type": "LEGISLATION", "description": "EU directive 2001/29/EC establishing copyright rules requiring human originality for work protection."}, {"id": "DSM DIRECTIVE", "label": "DSM DIRECTIVE", "type": "LEGISLATION", "description": "European Directive on Copyright in the Digital Single Market allowing technical opt-out mechanisms for text and data mining."}, {"id": "DABUS CASE", "label": "DABUS CASE", "type": "LEGAL_CASE", "description": "A legal dispute regarding whether an artificial intelligence system can be designated as an inventor on patent filings."}, {"id": "STEPHEN THALER", "label": "STEPHEN THALER", "type": "PERSON", "description": "Creator of DABUS who has pursued legal battles to have AI declared as an inventor and author."}, {"id": "EPO", "label": "EPO", "type": "ORGANIZATION", "description": "European Patent Office, which refused patent applications listing an AI system as an inventor."}, {"id": "UK SUPREME COURT", "label": "UK SUPREME COURT", "type": "GOVERNMENT", "description": "The highest court in the United Kingdom, which ruled in 2023 that an AI system cannot be listed as an inventor."}, {"id": "TEXT AND DATA MINING", "label": "TEXT AND DATA MINING", "type": "CONCEPT", "description": "An automated analytical technique used in AI training, regulated with explicit rights-holder opt-out rules under EU law."}, {"id": "CABINET DREYFUS", "label": "CABINET DREYFUS", "type": "ORGANIZATION", "description": "An IP law firm providing legal analysis, risk management, and regulatory tracking for AI intellectual property challenges."}, {"id": "EUROPEAN PATENT OFFICE", "label": "EUROPEAN PATENT OFFICE", "type": "ORGANIZATION", "description": "Intergovernmental organization handling European patent applications and requiring human inventors for patent filings."}, {"id": "DABUS CASE LAW", "label": "DABUS CASE LAW", "type": "LEGAL_CASE", "description": "Jurisprudence concerning the legal status of AI systems as inventors in patent applications."}, {"id": "GPAI", "label": "GPAI", "type": "CONCEPT", "description": "General Purpose AI models that are subject to transparency requirements and training data summary disclosures under the AI Act."}, {"id": "DREYFUS & ASSOCIATES", "label": "DREYFUS & ASSOCIATES", "type": "ORGANIZATION", "description": "An intellectual property cabinet providing expert guidance on AI and IP strategy."}, {"id": "GPAI MODELS", "label": "GPAI MODELS", "type": "AI_SYSTEM", "description": "General Purpose AI models that are subject to transparency and dataset publication obligations."}, {"id": "TDM OPT-OUT", "label": "TDM OPT-OUT", "type": "CONCEPT", "description": "A technical opt-out mechanism allowing authors to oppose extraction of their works by AI systems."}, {"id": "AUTHOR", "label": "AUTHOR", "type": "PERSON", "description": "Creators who can oppose technical extraction of their works by AI through technical signals."}, {"id": "UDRP", "label": "UDRP", "type": "LEGISLATION", "description": "Uniform Domain-Name Dispute-Resolution Policy used to resolve disputes and recover domain names."}, {"id": "UNITED STATES COPYRIGHT OFFICE", "label": "UNITED STATES COPYRIGHT OFFICE", "type": "GOVERNMENT", "description": "U.S. government agency responsible for issuing reports on AI copyrightability and digital replicas."}, {"id": "COPYRIGHT REGISTRATION GUIDANCE: WORKS CONTAINING MATERIAL GENERATED BY ARTIFICIAL INTELLIGENCE", "label": "COPYRIGHT REGISTRATION GUIDANCE: WORKS CONTAINING MATERIAL GENERATED BY ARTIFICIAL INTELLIGENCE", "type": "LEGISLATION", "description": "Policy guidance published in March 2023 by the US Copyright Office regarding human authorship requirements for AI-generated works."}, {"id": "UNITED STATES MILITARY ACADEMY", "label": "UNITED STATES MILITARY ACADEMY", "type": "ORGANIZATION", "description": "An academic and military institution (West Point) that published this educational guide on Generative AI and IP."}, {"id": "COPYRIGHT", "label": "COPYRIGHT", "type": "CONCEPT", "description": "An intellectual property doctrine debated regarding its applicability to reward human vs. machine creativity."}, {"id": "DALL-E", "label": "DALL-E", "type": "AI_SYSTEM", "description": "Generative AI model producing images evaluated in comparisons between human and AI art."}, {"id": "COPILOT", "label": "COPILOT", "type": "AI_SYSTEM", "description": "A generative AI tool capable of writing text, poems, and other content from user prompts."}, {"id": "WILLIAM SHAKESPEARE", "label": "WILLIAM SHAKESPEARE", "type": "PERSON", "description": "A historic playwright referenced in the US Copyright Office guidance as an example style prompt for text-generating technology."}, {"id": "ARTIFICIAL INTELLIGENCE", "label": "ARTIFICIAL INTELLIGENCE", "type": "CONCEPT", "description": "Technology that raises scope of copyright, training, and authorship policy issues currently examined by the Copyright Office."}, {"id": "DIGITAL REPLICAS", "label": "DIGITAL REPLICAS", "type": "CONCEPT", "description": "AI-generated reproductions of human voice or likeness addressed in Part 1 of the Copyright Office Report."}, {"id": "FEDERAL DIGITAL REPLICA LAW", "label": "FEDERAL DIGITAL REPLICA LAW", "type": "LEGISLATION", "description": "A proposed law recommended by the U.S. Copyright Office in Part 1 of its Artificial Intelligence Report."}, {"id": "AI TRAINING", "label": "AI TRAINING", "type": "CONCEPT", "description": "The process of using datasets, including copyrighted materials, to train AI models, addressed in Part 3 of the Copyright Office Report."}, {"id": "REPORT ON COPYRIGHT AND ARTIFICIAL INTELLIGENCE", "label": "REPORT ON COPYRIGHT AND ARTIFICIAL INTELLIGENCE", "type": "CONCEPT", "description": "A multi-part report published by the U.S. Copyright Office analyzing copyright policy and legal issues surrounding AI."}, {"id": "REPORT PART 1: DIGITAL REPLICAS", "label": "REPORT PART 1: DIGITAL REPLICAS", "type": "CONCEPT", "description": "The first section of the U.S. Copyright Office Report, published on July 31, 2024, recommending a Federal Digital Replica Law."}, {"id": "REPORT PART 2: COPYRIGHTABILITY", "label": "REPORT PART 2: COPYRIGHTABILITY", "type": "CONCEPT", "description": "The second section of the U.S. Copyright Office Report, published on January 29, 2025, addressing the copyrightability of generative AI outputs."}, {"id": "REPORT PART 3: GENERATIVE AI TRAINING", "label": "REPORT PART 3: GENERATIVE AI TRAINING", "type": "CONCEPT", "description": "The third section of the U.S. Copyright Office Report focusing on issues related to generative AI training."}, {"id": "EDWARD LEE", "label": "EDWARD LEE", "type": "PERSON", "description": "Professor at Santa Clara University School of Law who advocates for updating U.S. copyright law interpretations to protect prompt-engineered AI works."}, {"id": "GIOVANNI LOMONACO", "label": "GIOVANNI LOMONACO", "type": "PERSON", "description": "JD candidate at the Elisabeth Haub School of Law who advocates amending the Copyright Act to treat AI-generated works as works made for hire."}, {"id": "KATHERINE LEE", "label": "KATHERINE LEE", "type": "PERSON", "description": "Co-founder of The GenLaw Center who analyzes generative AI copyright through supply-chain framing."}, {"id": "A. FEDER COOPER", "label": "A. FEDER COOPER", "type": "PERSON", "description": "Co-founder of The GenLaw Center who proposes case-by-case analysis for AI copyright governance."}, {"id": "JAMES GRIMMELMANN", "label": "JAMES GRIMMELMANN", "type": "PERSON", "description": "Professor of Law at Cornell Law School who studies the legal implications of generative AI training supply chains."}, {"id": "SANTA CLARA UNIVERSITY SCHOOL OF LAW", "label": "SANTA CLARA UNIVERSITY SCHOOL OF LAW", "type": "ORGANIZATION", "description": "Academic institution where Professor Edward Lee researches AI copyright law."}, {"id": "ELISABETH HAUB SCHOOL OF LAW", "label": "ELISABETH HAUB SCHOOL OF LAW", "type": "ORGANIZATION", "description": "Academic law school where student researcher Giovanni LoMonaco studies AI legal governance."}, {"id": "THE GENLAW CENTER", "label": "THE GENLAW CENTER", "type": "ORGANIZATION", "description": "Legal research organization co-founded by Katherine Lee and A. Feder Cooper."}, {"id": "CORNELL LAW SCHOOL", "label": "CORNELL LAW SCHOOL", "type": "ORGANIZATION", "description": "Academic institution where Professor James Grimmelmann conducts legal research."}, {"id": "GPT SERIES", "label": "GPT SERIES", "type": "AI_SYSTEM", "description": "Generative AI language models developed by OpenAI trained on vast datasets to output textual compositions."}, {"id": "COPYRIGHT ACT", "label": "COPYRIGHT ACT", "type": "LEGISLATION", "description": "Primary U.S. statutory framework governing copyright protection under Title 17."}, {"id": "ADMINISTRATIVE PROCEDURE ACT", "label": "ADMINISTRATIVE PROCEDURE ACT", "type": "LEGISLATION", "description": "U.S. federal statute governing administrative agency rulemaking and procedural requirements."}, {"id": "Matthew Sag", "label": "Matthew Sag", "type": "PERSON", "description": "A professor at Emory University who argues that AI training on copyrighted works is not inherently copyright infringement."}, {"id": "Emory University", "label": "Emory University", "type": "ORGANIZATION", "description": "The academic institution where Matthew Sag conducts research."}, {"id": "Mark A. Lemley", "label": "Mark A. Lemley", "type": "PERSON", "description": "A professor at Stanford Law School who examines how generative AI challenges traditional copyright law."}, {"id": "Stanford Law School", "label": "Stanford Law School", "type": "ORGANIZATION", "description": "The law school where Mark A. Lemley serves as a professor."}, {"id": "Nicola Lucchi", "label": "Nicola Lucchi", "type": "PERSON", "description": "A researcher at University of Pompeu Fabra studying copyright challenges in generative AI using ChatGPT as a case study."}, {"id": "University of Pompeu Fabra", "label": "University of Pompeu Fabra", "type": "ORGANIZATION", "description": "A university in Spain affiliated with researcher Nicola Lucchi."}, {"id": "OpenAI", "label": "OpenAI", "type": "ORGANIZATION", "description": "An AI research organization that implemented strategies to mitigate image regurgitation and memorization in AI models."}, {"id": "ChatGPT", "label": "ChatGPT", "type": "AI_SYSTEM", "description": "A generative AI system created by OpenAI, used as a case study for analyzing copyright challenges."}, {"id": "Copyright Law", "label": "Copyright Law", "type": "LEGISLATION", "description": "The body of law regulating original works, derivative works, styles, and fair use limits."}, {"id": "Copyrighted Materials", "label": "Copyrighted Materials", "type": "CONCEPT", "description": "Protected intellectual property and data used to train generative AI models."}, {"id": "UNIVERSITY OF SOUTH FLORIDA", "label": "UNIVERSITY OF SOUTH FLORIDA", "type": "ORGANIZATION", "description": "Academic institution that published guidance on AI tools, copyright, and generative AI resources."}, {"id": "TITLE 17, U.S. CODE", "label": "TITLE 17, U.S. CODE", "type": "LEGISLATION", "description": "United States copyright law providing intellectual property protection for original works of authorship."}, {"id": "MATTHEW SAG", "label": "MATTHEW SAG", "type": "PERSON", "description": "Legal expert who identified and explained the Snoopy Problem regarding copyright infringement by generative AI."}, {"id": "SNOOPY PROBLEM", "label": "SNOOPY PROBLEM", "type": "CONCEPT", "description": "Concept describing how generative AI models can memorize and reproduce abstractly protected copyrighted works."}, {"id": "COPYRIGHTED MATERIAL", "label": "COPYRIGHTED MATERIAL", "type": "CONCEPT", "description": "Creative intellectual property used as input data to train and refine generative AI models."}, {"id": "NATIONAL INSTITUTES OF HEALTH", "label": "NATIONAL INSTITUTES OF HEALTH", "type": "GOVERNMENT", "description": "A U.S. government health agency that operates the PMC digital repository."}, {"id": "PMC", "label": "PMC", "type": "ORGANIZATION", "description": "PubMed Central, a digital archive of journal literature operated by the National Institutes of Health."}, {"id": "UNIVERSITY OF VIRGINIA", "label": "UNIVERSITY OF VIRGINIA", "type": "ORGANIZATION", "description": "Academic institution that compiled the reference guide on generative AI, copyright, and governance."}, {"id": "CHATGPT", "label": "CHATGPT", "type": "AI_SYSTEM", "description": "A conversational generative AI system that responds to user prompts within expected mental scope."}, {"id": "CONGRESSIONAL RESEARCH SERVICE", "label": "CONGRESSIONAL RESEARCH SERVICE", "type": "GOVERNMENT", "description": "Public policy research institute of the U.S. Congress providing legal sidebars on AI and copyright."}, {"id": "BRANDON BUTLER", "label": "BRANDON BUTLER", "type": "PERSON", "description": "Author who published an article discussing AI, copyright, and the fair use doctrine."}, {"id": "MARK LEMLEY", "label": "MARK LEMLEY", "type": "PERSON", "description": "Legal scholar and author who researched foundation models, machine learning, and fair use."}, {"id": "HOUSE JUDICIARY COMMITTEE", "label": "HOUSE JUDICIARY COMMITTEE", "type": "GOVERNMENT", "description": "U.S. House committee holding hearings on generative AI, copyright law, and intellectual property."}, {"id": "SENATE COMMITTEE ON THE JUDICIARY", "label": "SENATE COMMITTEE ON THE JUDICIARY", "type": "GOVERNMENT", "description": "U.S. Senate committee conducting hearings regarding generative AI and copyright regulations."}, {"id": "P. SAMUELSON", "label": "P. SAMUELSON", "type": "PERSON", "description": "Legal scholar authoring works on legal challenges and copyright intersections with generative AI."}, {"id": "M. SAG", "label": "M. SAG", "type": "PERSON", "description": "Academic author publishing research on copyright safety for generative AI."}, {"id": "M. LEMLEY", "label": "M. LEMLEY", "type": "PERSON", "description": "Legal scholar authoring research on fair learning and copyright principles in AI."}, {"id": "T. O'REILLY", "label": "T. O'REILLY", "type": "PERSON", "description": "Author writing about the challenges of regulating AI technology."}, {"id": "LAION 5-B", "label": "LAION 5-B", "type": "CONCEPT", "description": "A dataset containing 5 billion images and captions harvested from the internet, used to train AI models."}, {"id": "LAION", "label": "LAION", "type": "ORGANIZATION", "description": "A non-profit organization focused on making datasets, machine-learning models, and code publicly available."}, {"id": "COMMONPOOL", "label": "COMMONPOOL", "type": "CONCEPT", "description": "A dataset collection of 12.8 billion images and captions released by LAION."}, {"id": "GOOGLE BOOKS CASE", "label": "GOOGLE BOOKS CASE", "type": "LEGAL_CASE", "description": "A 2015 US court case establishing that scanning books for a searchable index is protected under fair use."}, {"id": "EU DIGITAL COPYRIGHT LAW", "label": "EU DIGITAL COPYRIGHT LAW", "type": "LEGISLATION", "description": "European legal framework governing text and data mining exemptions for digital works."}, {"id": "US CONSTITUTION", "label": "US CONSTITUTION", "type": "LEGISLATION", "description": "The foundational law of the United States, providing authority to establish copyright frameworks."}, {"id": "HUMAN CREATORS", "label": "HUMAN CREATORS", "type": "PERSON", "description": "Writers, actors, directors, and artists whose original online works are used to train generative AI models."}, {"id": "MEDIA CORPORATIONS", "label": "MEDIA CORPORATIONS", "type": "ORGANIZATION", "description": "Commercial entities in the media industry that rely on copyright for economic incentives."}, {"id": "YALE LAW JOURNAL", "label": "YALE LAW JOURNAL", "type": "ORGANIZATION", "description": "A law journal and publisher of the article discussing the limitations of copyright law for regulating generative AI."}, {"id": "INTELLECTUAL PROPERTY LAW", "label": "INTELLECTUAL PROPERTY LAW", "type": "LEGISLATION", "description": "Broader legal framework regulating creative works, software, and digital media access."}, {"id": "COPYRIGHTED WORKS", "label": "COPYRIGHTED WORKS", "type": "CONCEPT", "description": "Protected creative materials used without permission to train generative AI systems."}, {"id": "PUBLIC DOMAIN", "label": "PUBLIC DOMAIN", "type": "CONCEPT", "description": "Body of uncopyrighted creative works that could be impacted by assigning copyright to AI-generated content."}, {"id": "BIG TECH", "label": "BIG TECH", "type": "ORGANIZATION", "description": "Major technology corporations involved as key players in ongoing AI copyright litigation."}, {"id": "LEGACY CREATIVE INTERMEDIARIES", "label": "LEGACY CREATIVE INTERMEDIARIES", "type": "ORGANIZATION", "description": "Traditional media and creative industry entities involved in copyright litigation against tech companies."}, {"id": "WEB SCRAPING", "label": "WEB SCRAPING", "type": "CONCEPT", "description": "A technique used to gather data for training AI systems, central to AI copyright debates."}, {"id": "OUROBOROS COPYRIGHT", "label": "OUROBOROS COPYRIGHT", "type": "CONCEPT", "description": "A concept describing how expanding copyright law to address AI could ultimately cannibalize creative industries."}, {"id": "Yale Law Journal", "label": "Yale Law Journal", "type": "ORGANIZATION", "description": "The legal academic journal that published the essay discussing AI copyright policy and governance."}, {"id": "Jerry Kaplan", "label": "Jerry Kaplan", "type": "PERSON", "description": "A professor who in 2015 predicted the economic asymmetry and wealth polarization caused by AI automation."}, {"id": "Generative AI", "label": "Generative AI", "type": "AI_SYSTEM", "description": "Artificial intelligence systems capable of learning from statistical distributions of training data to create new information."}, {"id": "Large Language Models", "label": "Large Language Models", "type": "AI_SYSTEM", "description": "A category of generative AI systems composed of diverse algorithmic stacks whose inner workings are central to copyright litigation."}, {"id": "Moral Rights", "label": "Moral Rights", "type": "CONCEPT", "description": "Continental legal protections for creators regarding attribution, integrity, disclosure, and retraction beyond economic interests."}, {"id": "Work-For-Hire Doctrine", "label": "Work-For-Hire Doctrine", "type": "CONCEPT", "description": "A legal doctrine frequently used in contractual agreements to circumvent creators' moral rights and attribution claims."}, {"id": "WARREN S. MCCULLOCH", "label": "WARREN S. MCCULLOCH", "type": "PERSON", "description": "Early computer science pioneer whose 1940s work contributed to the foundations of artificial intelligence."}, {"id": "WALTER PITTS", "label": "WALTER PITTS", "type": "PERSON", "description": "Early computer science researcher who co-authored foundational work in artificial intelligence in the 1940s."}, {"id": "NETFLIX", "label": "NETFLIX", "type": "ORGANIZATION", "description": "Media company that utilizes predictive AI algorithms for media recommendations."}, {"id": "MULTIMODAL AI", "label": "MULTIMODAL AI", "type": "CONCEPT", "description": "Artificial intelligence defined by its capability to integrate and process multiple types of data inputs."}, {"id": "GENERATIVE ADVERSARIAL NETWORKS", "label": "GENERATIVE ADVERSARIAL NETWORKS", "type": "CONCEPT", "description": "AI architecture using competing generator and discriminator neural networks to produce realistic synthetic data."}, {"id": "DIFFUSION MODELS", "label": "DIFFUSION MODELS", "type": "CONCEPT", "description": "Generative AI architecture trained to generate media by reversing a fixed noise corruption process."}, {"id": "DALL\u00b7E 2", "label": "DALL\u00b7E 2", "type": "AI_SYSTEM", "description": "Generative AI image generation system built on diffusion model architecture."}, {"id": "DALL-E 2", "label": "DALL-E 2", "type": "AI_SYSTEM", "description": "Generative text-to-image AI model tested for boundaries of human intervention and prompt-driven creativity."}, {"id": "CLIP", "label": "CLIP", "type": "AI_SYSTEM", "description": "Contrastive Language-Image Pre-training model composed of text and image encoders used to identify word-image pair intersections."}, {"id": "LAION-5B", "label": "LAION-5B", "type": "AI_SYSTEM", "description": "A massive dataset containing URLs to images paired with text, used in training generative AI models."}, {"id": "GPT-3", "label": "GPT-3", "type": "AI_SYSTEM", "description": "A Large Language Model developed by OpenAI for natural language processing tasks."}, {"id": "GOOGLE", "label": "GOOGLE", "type": "ORGANIZATION", "description": "A major technology company involved in digitization initiatives and copyright litigation."}, {"id": "BERT", "label": "BERT", "type": "AI_SYSTEM", "description": "A bidirectional transformer AI model developed by Google for natural language processing."}, {"id": "STANFORD INSTITUTE FOR HUMAN-CENTERED ARTIFICIAL INTELLIGENCE", "label": "STANFORD INSTITUTE FOR HUMAN-CENTERED ARTIFICIAL INTELLIGENCE", "type": "ORGANIZATION", "description": "An academic institute that coined and defined the concept of Foundation Models."}, {"id": "FOUNDATION MODELS", "label": "FOUNDATION MODELS", "type": "CONCEPT", "description": "AI models trained on massive unlabeled datasets that serve as adaptable foundations for specific downstream tasks."}, {"id": "MICHELANGELO", "label": "MICHELANGELO", "type": "PERSON", "description": "Historical Renaissance artist whose quote about discovering sculptures in stone is used to illustrate the diffusion process."}, {"id": "MARGARET BODEN", "label": "MARGARET BODEN", "type": "PERSON", "description": "A leading scholar in creativity and AI research who defined three types of creativity: combinational, exploratory, and transformational."}, {"id": "ALAN M. TURING", "label": "ALAN M. TURING", "type": "PERSON", "description": "A mathematician and computer scientist who authored the 1950 article proposing the imitation game."}, {"id": "ADA LOVELACE", "label": "ADA LOVELACE", "type": "PERSON", "description": "A historical computing figure who posited that machines can only perform what humans order them to do."}, {"id": "SIMON COLTON", "label": "SIMON COLTON", "type": "PERSON", "description": "Computational creativity researcher who proponent of autonomous creativity and developer of The Painting Fool."}, {"id": "THE PAINTING FOOL", "label": "THE PAINTING FOOL", "type": "AI_SYSTEM", "description": "An AI software developed by Simon Colton intended to be recognized as an autonomous creative artist."}, {"id": "ANALYTICAL ENGINE", "label": "ANALYTICAL ENGINE", "type": "AI_SYSTEM", "description": "An early mechanical programmable computer discussed regarding its inability to originate new ideas beyond its instructions."}, {"id": "CREATIVITY", "label": "CREATIVITY", "type": "CONCEPT", "description": "The central concept in art, AI research, and copyright law, defined as the ability to produce new, surprising, and valuable ideas."}, {"id": "ORIGINALITY REQUIREMENT", "label": "ORIGINALITY REQUIREMENT", "type": "CONCEPT", "description": "A legal copyright doctrine established by courts that demands a modicum of creativity for work to be protected."}, {"id": "D.C. FEDERAL DISTRICT COURT", "label": "D.C. FEDERAL DISTRICT COURT", "type": "GOVERNMENT", "description": "Federal court that ruled against recognizing DABUS as an autonomous author."}, {"id": "AESTHETIC NEUTRALITY DOCTRINE", "label": "AESTHETIC NEUTRALITY DOCTRINE", "type": "CONCEPT", "description": "A legal principle in law holding that the law should not make judgments on the artistic value or quality of a work."}, {"id": "CREATIVITY RESEARCH JOURNAL", "label": "CREATIVITY RESEARCH JOURNAL", "type": "ORGANIZATION", "description": "An academic journal that published a study defining key elements of creativity."}, {"id": "IMITATION GAME", "label": "IMITATION GAME", "type": "CONCEPT", "description": "A philosophical proposition introduced by Alan Turing to evaluate machine intelligence."}, {"id": "OLIVER WENDELL HOLMES", "label": "OLIVER WENDELL HOLMES", "type": "PERSON", "description": "A US Supreme Court Justice who cautioned against judges acting as sole evaluators of artistic worth."}, {"id": "BLEISTEIN V. DONALDSON LITHOGRAPHING CO.", "label": "BLEISTEIN V. DONALDSON LITHOGRAPHING CO.", "type": "LEGAL_CASE", "description": "A US Supreme Court case that carved out the legal doctrine of aesthetic neutrality in copyright."}, {"id": "AESTHETIC NEUTRALITY", "label": "AESTHETIC NEUTRALITY", "type": "CONCEPT", "description": "A legal doctrine stating that legal authorities should not judge the artistic worth of creative works."}, {"id": "SOURCE INDIFFERENCE PRINCIPLE", "label": "SOURCE INDIFFERENCE PRINCIPLE", "type": "CONCEPT", "description": "A proposed legal concept stating that law should not differentiate between human and AI outputs if they cannot be aesthetically distinguished."}, {"id": "ARTISTIC TURING TEST", "label": "ARTISTIC TURING TEST", "type": "CONCEPT", "description": "A theoretical benchmark to determine whether an observer can aesthetically differentiate between human-created and AI-generated works."}, {"id": "BOSTON DYNAMICS", "label": "BOSTON DYNAMICS", "type": "ORGANIZATION", "description": "A robotics company cited as an example of rapid technological progression from harmless humor to advanced capability."}, {"id": "GAI", "label": "GAI", "type": "AI_SYSTEM", "description": "Generative Artificial Intelligence models whose output and training dataset rights are the subject of legal debate."}, {"id": "GHOST WORK", "label": "GHOST WORK", "type": "CONCEPT", "description": "Invisibilized and low-wage human labor, including data labeling, cleansing, and content moderation, that powers AI systems."}, {"id": "DEEPFAKES", "label": "DEEPFAKES", "type": "CONCEPT", "description": "Synthetic media generated by AI that contributes to misinformation and democratic erosion."}, {"id": "AI COMPANIONS", "label": "AI COMPANIONS", "type": "AI_SYSTEM", "description": "Commercial generative AI applications designed for emotional attachment and personal interaction."}, {"id": "ARTISTS", "label": "ARTISTS", "type": "CONCEPT", "description": "Individual creative human creators who often express opposition to unauthorized generative AI use."}, {"id": "CARIOU V. PRINCE", "label": "CARIOU V. PRINCE", "type": "LEGAL_CASE", "description": "A judicial legal case establishing boundaries for copyright infringement, artistic appropriation, and fair use."}, {"id": "TAYLOR SWIFT", "label": "TAYLOR SWIFT", "type": "PERSON", "description": "A prominent musical artist whose rights dispute serves as an example of creative markets harming original creators."}, {"id": "REBECCA GIBLIN", "label": "REBECCA GIBLIN", "type": "PERSON", "description": "Author and academic who co-wrote Chokepoint Capitalism to critique exploitative creative market structures."}, {"id": "CORY DOCTOROW", "label": "CORY DOCTOROW", "type": "PERSON", "description": "Author and activist who co-wrote Chokepoint Capitalism examining platform power over artists."}, {"id": "CHOKEPOINT CAPITALISM", "label": "CHOKEPOINT CAPITALISM", "type": "CONCEPT", "description": "A concept and publication examining how corporate ownership and platform monopolies capture value from creative workers."}, {"id": "SAG-AFTRA", "label": "SAG-AFTRA", "type": "ORGANIZATION", "description": "An American labor union representing media professionals that went on strike partly in response to the rise of GAI."}, {"id": "HOUSE OF LORDS COMMUNICATIONS AND DIGITAL SELECT COMMITTEE", "label": "HOUSE OF LORDS COMMUNICATIONS AND DIGITAL SELECT COMMITTEE", "type": "GOVERNMENT", "description": "A UK parliamentary committee that collected submissions regarding AI technology and copyright issues."}, {"id": "COPYRIGHTED CONTENT", "label": "COPYRIGHTED CONTENT", "type": "CONCEPT", "description": "Human expressions including text, photos, and software code used to train AI models."}, {"id": "CONTINENTAL LAW", "label": "CONTINENTAL LAW", "type": "LEGISLATION", "description": "A legal system that explicitly recognizes moral rights of creative workers."}, {"id": "AUTHORS GUILD V. GOOGLE, INC.", "label": "AUTHORS GUILD V. GOOGLE, INC.", "type": "LEGAL_CASE", "description": "A landmark copyright lawsuit concerning book digitization and transformative fair-use precedent."}, {"id": "AUTHORS GUILD", "label": "AUTHORS GUILD", "type": "ORGANIZATION", "description": "An organization of writers that initiated copyright infringement litigation against Google."}, {"id": "17 U.S.C. \u00a7 101", "label": "17 U.S.C. \u00a7 101", "type": "LEGISLATION", "description": "United States copyright statute defining what constitutes a legal copy."}, {"id": "17 U.S.C. \u00a7 112", "label": "17 U.S.C. \u00a7 112", "type": "LEGISLATION", "description": "United States copyright statute providing rules for ephemeral copies."}, {"id": "WILLIAM PATRY", "label": "WILLIAM PATRY", "type": "PERSON", "description": "A copyright legal scholar noting shifts in the definition and scope of legal copies."}, {"id": "GOOGLE BOOKS PROJECT", "label": "GOOGLE BOOKS PROJECT", "type": "CONCEPT", "description": "An initiative by Google to digitize library collections and create a searchable virtual card catalog."}, {"id": "Authors Guild", "label": "Authors Guild", "type": "ORGANIZATION", "description": "An organization representing authors that initiated a copyright lawsuit against Google over its book digitization project."}, {"id": "Google", "label": "Google", "type": "ORGANIZATION", "description": "A technology company that digitized library collections to create an indexed, searchable online catalog."}, {"id": "Authors Guild v. Google, Inc.", "label": "Authors Guild v. Google, Inc.", "type": "LEGAL_CASE", "description": "A legal case where the court ruled that Google's book digitization was transformative and constituted fair use."}, {"id": "Stable Diffusion", "label": "Stable Diffusion", "type": "AI_SYSTEM", "description": "Generative AI image generation model referenced in discussions about identifying human versus AI art."}, {"id": "LAION 5B", "label": "LAION 5B", "type": "CONCEPT", "description": "A massive dataset composed of 5.85 billion image-text pairs used for training AI models like Stable Diffusion."}, {"id": "GHOST WORKERS", "label": "GHOST WORKERS", "type": "CONCEPT", "description": "The low-wage human workforce responsible for fine-tuning, categorizing, and sanitizing datasets for AI models."}, {"id": "COPYRIGHT POISONING", "label": "COPYRIGHT POISONING", "type": "CONCEPT", "description": "The commercial and legal risk where unresolved copyright issues in AI training data threaten the stability of downstream industries."}, {"id": "HIQ LABS, INC. V. LINKEDIN CORP.", "label": "HIQ LABS, INC. V. LINKEDIN CORP.", "type": "LEGAL_CASE", "description": "A legal case in which the Ninth Circuit ruled that web-scraping does not inherently violate the U.S. Computer Fraud and Abuse Act under certain conditions."}, {"id": "HIQ LABS, INC.", "label": "HIQ LABS, INC.", "type": "ORGANIZATION", "description": "A tech company involved in data analytics and web-scraping."}, {"id": "LINKEDIN CORP.", "label": "LINKEDIN CORP.", "type": "ORGANIZATION", "description": "A professional networking platform and defendant in a major web-scraping lawsuit."}, {"id": "UNITED STATES COURT OF APPEALS FOR THE NINTH CIRCUIT", "label": "UNITED STATES COURT OF APPEALS FOR THE NINTH CIRCUIT", "type": "GOVERNMENT", "description": "A U.S. federal appellate court that issued the decision in HIQ Labs, Inc. v. LinkedIn Corp."}, {"id": "WEB-SCRAPING", "label": "WEB-SCRAPING", "type": "CONCEPT", "description": "An automated data collection technique used to gather web content for indexing and AI model training."}, {"id": "NAPSTER", "label": "NAPSTER", "type": "ORGANIZATION", "description": "A historic peer-to-peer file sharing service previously involved in copyright disputes with the music industry."}, {"id": "GAMING PUBLISHERS", "label": "GAMING PUBLISHERS", "type": "ORGANIZATION", "description": "Video game development companies taking restrictive stances against GAI due to copyright risks."}, {"id": "COMPUTER FRAUD AND ABUSE ACT", "label": "COMPUTER FRAUD AND ABUSE ACT", "type": "LEGISLATION", "description": "A U.S. cybersecurity law used in litigation to challenge unauthorized data access and web-scraping."}, {"id": "NET NEUTRALITY", "label": "NET NEUTRALITY", "type": "CONCEPT", "description": "An Internet governance principle advocating for no discrimination based on the type of information transmitted over the web."}, {"id": "U.S. Copyright Office", "label": "U.S. Copyright Office", "type": "GOVERNMENT", "description": "Government agency responsible for copyright registration and policy guidance regarding AI-generated material."}, {"id": "Stephen Thaler", "label": "Stephen Thaler", "type": "PERSON", "description": "Inventor behind AI copyright suits who attempted to register AI-generated works for copyright protection."}, {"id": "Copyright Registration Guidance for AI Works", "label": "Copyright Registration Guidance for AI Works", "type": "LEGISLATION", "description": "Policy guidance issued by the U.S. Copyright Office regarding copyright registration for works containing AI-generated material."}, {"id": "Ahmed Elgammal", "label": "Ahmed Elgammal", "type": "PERSON", "description": "Researcher and author of research on Creative Adversarial Networks for generating novel art styles."}, {"id": "Creative Adversarial Networks", "label": "Creative Adversarial Networks", "type": "AI_SYSTEM", "description": "An AI system designed to generate novel art by learning and deviating from existing style norms."}, {"id": "Magic: The Gathering Publisher", "label": "Magic: The Gathering Publisher", "type": "ORGANIZATION", "description": "Publisher that admitted to using AI art in promotional imagery after initial denials."}, {"id": "AI-Generated Art", "label": "AI-Generated Art", "type": "CONCEPT", "description": "Artistic works created using artificial intelligence systems, subject to legal and artistic debate."}], "links": [{"source": "U.S. COPYRIGHT OFFICE", "target": "THALER", "label": "OPPOSES", "description": "The U.S. Copyright Office rejected Thaler's application for copyright protection on AI-generated work."}, {"source": "U.S. COPYRIGHT OFFICE", "target": "ARTIFICIAL INTELLIGENCE", "label": "REGULATES", "description": "The U.S. Copyright Office examines copyright policy and administers rules regarding artificial intelligence."}, {"source": "U.S. COPYRIGHT OFFICE", "target": "FEDERAL DIGITAL REPLICA LAW", "label": "ADVOCATES_FOR", "description": "The U.S. Copyright Office recommends the enactment of a Federal Digital Replica Law."}, {"source": "U.S. COPYRIGHT OFFICE", "target": "GENERATIVE AI", "label": "REGULATES", "description": "The U.S. Copyright Office issued guidance regulating copyright registration for works created in tandem with generative AI."}, {"source": "U.S. COPYRIGHT OFFICE", "target": "HUMAN AUTHORSHIP", "label": "ADVOCATES_FOR", "description": "The U.S. Copyright Office requires human authorship as a fundamental prerequisite for granting copyright protection."}, {"source": "STABILITY AI", "target": "ANDERSEN V. STABILITY AI", "label": "DEFENDANT_IN", "description": "Stability AI is named as a primary defendant in the Andersen v. Stability AI copyright infringement lawsuit."}, {"source": "STABILITY AI", "target": "STABLE DIFFUSION", "label": "PART_OF", "description": "Stable Diffusion is the AI image-generating platform developed and utilized by Stability AI."}, {"source": "STABILITY AI", "target": "LAION-5B", "label": "REFERENCES", "description": "Stability AI cited LAION-5B datasets in the technical model card for Stable Diffusion."}, {"source": "MIDJOURNEY", "target": "ANDERSEN V. STABILITY AI", "label": "DEFENDANT_IN", "description": "Midjourney is a defendant in the Andersen v. Stability AI lawsuit filed by artists."}, {"source": "MIDJOURNEY", "target": "MULTIMODAL AI", "label": "PART_OF", "description": "Midjourney incorporates multimodal AI capabilities by generating images from both text and image inputs."}, {"source": "MIDJOURNEY", "target": "YALE LAW JOURNAL", "label": "REFERENCES", "description": "The Yale Law Journal article references Midjourney to analyze machine creative decisions during prompt generation."}, {"source": "DEVIANTART", "target": "ANDERSEN V. STABILITY AI", "label": "DEFENDANT_IN", "description": "DeviantArt is listed as a defendant in the Andersen v. Stability AI copyright case."}, {"source": "OPENAI", "target": "THE NEW YORK TIMES", "label": "FILED_AGAINST", "description": "The New York Times filed a copyright lawsuit against OpenAI for using its articles in AI training datasets."}, {"source": "OPENAI", "target": "NY TIMES", "label": "FILED_AGAINST", "description": "NY Times filed a copyright infringement lawsuit against OpenAI."}, {"source": "OPENAI", "target": "GPT SERIES", "label": "PART_OF", "description": "The GPT series is a product line of AI models developed by OpenAI."}, {"source": "OPENAI", "target": "GPT-3", "label": "PART_OF", "description": "GPT-3 is a generative AI system created and owned by OpenAI."}, {"source": "OPENAI", "target": "HOUSE OF LORDS COMMUNICATIONS AND DIGITAL SELECT COMMITTEE", "label": "REFERENCES", "description": "OpenAI provided a formal written submission to the House of Lords Communications and Digital Select Committee regarding copyright and AI model training."}, {"source": "OPENAI", "target": "GENERATIVE AI", "label": "ADVOCATES_FOR", "description": "OpenAI advocates for the necessity of broad dataset access to build effective modern generative AI systems."}, {"source": "OPENAI", "target": "COPYRIGHTED MATERIAL", "label": "TRAINED_ON", "description": "OpenAI publicly acknowledged that its models rely on training using copyrighted materials to be effective."}, {"source": "OPENAI", "target": "GHOST WORKERS", "label": "REFERENCES", "description": "The article contrasts OpenAI's recognition of copyrighted data with the equal reliance of such models on ghost work."}, {"source": "MICROSOFT", "target": "THE NEW YORK TIMES", "label": "FILED_AGAINST", "description": "The New York Times sued Microsoft for using copyrighted news content to train chatbots without permission."}, {"source": "MICROSOFT", "target": "NY TIMES", "label": "FILED_AGAINST", "description": "NY Times filed a lawsuit against Microsoft for copyright infringement related to AI training."}, {"source": "STABLE DIFFUSION", "target": "ANDERSEN V. STABILITY AI", "label": "REFERENCES", "description": "The Andersen v. Stability AI case directly references the training and compression of copyrighted images in Stable Diffusion."}, {"source": "STABLE DIFFUSION", "target": "LAION 5-B", "label": "TRAINED_ON", "description": "Stable Diffusion was trained using the 5 billion images and captions within the LAION 5-B dataset."}, {"source": "STABLE DIFFUSION", "target": "DIFFUSION MODELS", "label": "PART_OF", "description": "Stable Diffusion is a generative model based on the diffusion process."}, {"source": "STABLE DIFFUSION", "target": "MULTIMODAL AI", "label": "PART_OF", "description": "Stable Diffusion functions as a multimodal system capable of taking multiple input formats such as text and images."}, {"source": "STABLE DIFFUSION", "target": "LAION-5B", "label": "TRAINED_ON", "description": "Stable Diffusion was trained using image-text pair data sourced from the LAION-5B dataset."}, {"source": "STABLE DIFFUSION", "target": "YALE LAW JOURNAL", "label": "REFERENCES", "description": "The Yale Law Journal article references Stable Diffusion to evaluate AI model training techniques for copyright analysis."}, {"source": "STABLE DIFFUSION", "target": "17 U.S.C. \u00a7 101", "label": "REGULATES", "description": "17 U.S.C. \u00a7 101 sets the legal threshold for copies against which AI processes like Stable Diffusion are evaluated."}, {"source": "STABLE DIFFUSION", "target": "COPYRIGHTED MATERIAL", "label": "TRAINED_ON", "description": "Stable Diffusion outputs are generated using datasets composed of multiple individual copyrighted works."}, {"source": "STABLE DIFFUSION", "target": "GENERATIVE AI", "label": "PART_OF", "description": "Stable Diffusion is a specific AI system operating within the broader domain of generative AI."}, {"source": "GENERATIVE AI COPYRIGHT DISCLOSURE ACT OF 2024", "target": "U.S. CONGRESS", "label": "PART_OF", "description": "The Generative AI Copyright Disclosure Act of 2024 was introduced as legislative business within the U.S. Congress."}, {"source": "GENERATIVE AI COPYRIGHT DISCLOSURE ACT OF 2024", "target": "GENERATIVE AI", "label": "REGULATES", "description": "The Generative AI Copyright Disclosure Act of 2024 regulates transparency and disclosure surrounding generative AI training data."}, {"source": "FAIR USE DOCTRINE", "target": "COPYRIGHT LAW", "label": "PART_OF", "description": "The Fair Use Doctrine is a core legal concept within the broader framework of copyright law."}, {"source": "NO AI FRAUD ACT", "target": "SALAZAR", "label": "ADVOCATES_FOR", "description": "Representative Salazar introduced and advocates for the passage of the No AI Fraud Act."}, {"source": "EUROPEAN UNION", "target": "AI ACT", "label": "PART_OF", "description": "The AI Act is a key legislative proposal forming part of the European Union's regulatory strategy."}, {"source": "EUROPEAN UNION", "target": "INFOSOC DIRECTIVE", "label": "PART_OF", "description": "The Infosoc Directive forms part of the European Union's broader legal framework on copyright."}, {"source": "EUROPEAN UNION", "target": "DSM DIRECTIVE", "label": "PART_OF", "description": "The DSM Directive is part of the legislative body governing copyright across European Union member states."}, {"source": "EUROPEAN UNION", "target": "GENERATIVE AI", "label": "REGULATES", "description": "The European Union regulates generative AI data extraction through text and data mining exceptions."}, {"source": "EUROPEAN UNION", "target": "EU DIGITAL COPYRIGHT LAW", "label": "PART_OF", "description": "EU digital copyright law forms the statutory framework enacted and maintained by the European Union."}, {"source": "EUROPEAN UNION", "target": "WEB-SCRAPING", "label": "REGULATES", "description": "The European Union regulates web-scraping through database rights that grant specific legal protections to database owners."}, {"source": "AI ACT", "target": "GPAI", "label": "REGULATES", "description": "The AI Act imposes transparency obligations and training data summary publication requirements on general purpose AI model (GPAI) providers."}, {"source": "AI ACT", "target": "CABINET DREYFUS", "label": "REFERENCES", "description": "Cabinet Dreyfus tracks developments in the AI Act as part of its regulatory monitoring service."}, {"source": "AI ACT", "target": "GPAI MODELS", "label": "REGULATES", "description": "The AI Act imposes transparency obligations and requirements to publish dataset summaries on GPAI models."}, {"source": "AI ACT", "target": "DREYFUS & ASSOCIATES", "label": "REFERENCES", "description": "Dreyfus & Associates outlines regulatory obligations mandated by the AI Act."}, {"source": "BEIJING INTERNET COURT", "target": "CHINA", "label": "PART_OF", "description": "The Beijing Internet Court operates as part of the judicial system of China."}, {"source": "BEIJING INTERNET COURT", "target": "HUMAN AUTHORSHIP", "label": "REFERENCES", "description": "The Beijing Internet Court issued a decision evaluating human creative effort and authorship standards in AI-generated images."}, {"source": "BEIJING INTERNET COURT", "target": "GENERATIVE AI", "label": "REGULATES", "description": "The Beijing Internet Court regulated AI copyright by establishing conditions for recognizing ownership in human-assisted AI outputs."}, {"source": "CHINA", "target": "AI-GENERATED WORKS", "label": "REGULATES", "description": "China establishes legal conditions under which AI-generated works are recognized based on human intellectual effort."}, {"source": "CHINA", "target": "HUMAN INTELLECTUAL EFFORT", "label": "REFERENCES", "description": "China highlights human intellectual effort as the primary requirement for legal copyright protection of AI outputs."}, {"source": "UNITED STATES", "target": "THALER V. PERLMUTTER", "label": "REFERENCES", "description": "Thaler v. Perlmutter is a landmark legal case originating in and referencing United States copyright law."}, {"source": "UNITED STATES", "target": "US COPYRIGHT OFFICE", "label": "PART_OF", "description": "The US Copyright Office operates within the federal structure of the United States."}, {"source": "UNITED STATES", "target": "WEB-SCRAPING", "label": "REGULATES", "description": "The United States regulates web-scraped dataset contents by requiring a threshold of originality for legal copyright protection."}, {"source": "THALER V. PERLMUTTER", "target": "HUMAN AUTHORSHIP", "label": "REFERENCES", "description": "The court ruling in Thaler v. Perlmutter directly references the requirement of human authorship for copyright eligibility."}, {"source": "THALER V. PERLMUTTER", "target": "US COPYRIGHT OFFICE", "label": "REFERENCES", "description": "The court decision in Thaler v. Perlmutter validated the US Copyright Office's policy position on purely AI-generated works."}, {"source": "THALER V. PERLMUTTER", "target": "GENERATIVE AI", "label": "REFERENCES", "description": "Thaler v. Perlmutter is a landmark legal case directly concerning copyright ownership for AI-generated works."}, {"source": "STABILITY AI LTD.", "target": "ANDERSEN V. STABILITY AI LTD.", "label": "DEFENDANT_IN", "description": "Stability AI Ltd. is a defendant in the Andersen v. Stability AI Ltd. copyright litigation."}, {"source": "EU AI ACT", "target": "GENERATIVE AI", "label": "REGULATES", "description": "The EU AI Act regulates generative AI development and imposes mandatory copyright disclosure requirements."}, {"source": "HUMAN AUTHORSHIP", "target": "US COPYRIGHT OFFICE", "label": "ADVOCATES_FOR", "description": "The US Copyright Office maintains the position that constitutional copyright protection strictly requires human authorship."}, {"source": "GENERATIVE AI", "target": "TRAINING DATA", "label": "TRAINED_ON", "description": "Generative AI systems use copyright-protected works as training data to generate novel content."}, {"source": "GENERATIVE AI", "target": "COPYRIGHT LAW", "label": "OPPOSES", "description": "Generative AI destabilizes established copyright law by creating legal and social crises around ownership."}, {"source": "GENERATIVE AI", "target": "MEMBER STATES", "label": "REGULATES", "description": "Member State governments adopt regulatory measures and strategic plans to oversee Generative AI deployment."}, {"source": "GENERATIVE AI", "target": "WORLD INTELLECTUAL PROPERTY ORGANIZATION", "label": "REFERENCES", "description": "WIPO continuously addresses and references Generative AI during dedicated policy sessions on AI and IP."}, {"source": "GENERATIVE AI", "target": "US COPYRIGHT OFFICE", "label": "REGULATES", "description": "The US Copyright Office regulates generative AI by requiring disclosure of AI-generated elements in copyright applications."}, {"source": "GENERATIVE AI", "target": "DC CIRCUIT", "label": "REGULATES", "description": "The DC Circuit issued a legal ruling regulating generative AI outputs by denying copyright protection to purely AI-created works."}, {"source": "GENERATIVE AI", "target": "NIXON PEABODY", "label": "REFERENCES", "description": "Nixon Peabody analyzes and references generative AI in evaluating modern intellectual property law challenges."}, {"source": "GENERATIVE AI", "target": "FAIR USE", "label": "REFERENCES", "description": "Legal experts reference fair use principles when evaluating the legitimacy of using copyrighted data to train generative AI systems."}, {"source": "GENERATIVE AI", "target": "COPYRIGHT REGISTRATION GUIDANCE: WORKS CONTAINING MATERIAL GENERATED BY ARTIFICIAL INTELLIGENCE", "label": "REGULATES", "description": "This official guidance establishes regulatory requirements for copyright claims involving material produced by Generative AI tools."}, {"source": "GENERATIVE AI", "target": "COPYRIGHT", "label": "TRAINED_ON", "description": "Generative AI models are pre-trained on vast datasets that often include works protected under copyright."}, {"source": "GENERATIVE AI", "target": "DALL-E", "label": "PART_OF", "description": "Dall-E is an image creation tool that belongs to the broader class of Generative AI technology."}, {"source": "GENERATIVE AI", "target": "COPILOT", "label": "PART_OF", "description": "Copilot is a text and creative writing tool that is part of the Generative AI family."}, {"source": "GENERATIVE AI", "target": "REPORT PART 2: COPYRIGHTABILITY", "label": "REFERENCES", "description": "Part 2 of the report addresses the copyrightability of outputs created using generative AI."}, {"source": "GENERATIVE AI", "target": "TITLE 17, U.S. CODE", "label": "REGULATES", "description": "Title 17 governs copyright law in the United States, dictating the legal protection limits for material created by generative AI."}, {"source": "GENERATIVE AI", "target": "COPYRIGHTED MATERIAL", "label": "TRAINED_ON", "description": "Generative AI tools are trained on vast collections of content, including copyrighted text and images scraped from web pages."}, {"source": "GENERATIVE AI", "target": "SNOOPY PROBLEM", "label": "PART_OF", "description": "The Snoopy Problem represents a unique structural feature of how generative AI models memorize copyrighted works."}, {"source": "GENERATIVE AI", "target": "UNITED STATES COPYRIGHT OFFICE", "label": "REGULATES", "description": "The United States Copyright Office publishes official legal guidance and policy reports on generative AI and copyrightability."}, {"source": "GENERATIVE AI", "target": "P. SAMUELSON", "label": "REFERENCES", "description": "P. Samuelson authored papers addressing legal challenges and copyright issues surrounding generative AI."}, {"source": "GENERATIVE AI", "target": "M. SAG", "label": "REFERENCES", "description": "M. Sag authored research discussing copyright safety mechanisms for generative AI."}, {"source": "GENERATIVE AI", "target": "CONGRESSIONAL RESEARCH SERVICE", "label": "REFERENCES", "description": "The Congressional Research Service produced legal sidebars evaluating legal aspects of generative AI for Congress."}, {"source": "GENERATIVE AI", "target": "HOUSE JUDICIARY COMMITTEE", "label": "REFERENCES", "description": "The House Judiciary Committee held hearings to examine the impact of generative AI on copyright law."}, {"source": "GENERATIVE AI", "target": "SENATE COMMITTEE ON THE JUDICIARY", "label": "REFERENCES", "description": "The Senate Judiciary Committee held hearings addressing the relationship between generative AI and copyright."}, {"source": "GENERATIVE AI", "target": "UNIVERSITY OF VIRGINIA", "label": "REFERENCES", "description": "The University of Virginia published research guidelines concerning copyright and legal governance of generative AI."}, {"source": "GENERATIVE AI", "target": "T. O'REILLY", "label": "REFERENCES", "description": "T. O'Reilly authored articles regarding the governance and regulatory challenges posed by generative AI."}, {"source": "GENERATIVE AI", "target": "HUMAN CREATORS", "label": "TRAINED_ON", "description": "Generative AI models routinely incorporate the online creative works of human creators into their training sets."}, {"source": "GENERATIVE AI", "target": "COPYRIGHTED WORKS", "label": "TRAINED_ON", "description": "Generative AI systems rely on training datasets containing copyright-protected works."}, {"source": "GENERATIVE AI", "target": "YALE LAW JOURNAL", "label": "REFERENCES", "description": "The publication analyzes legal and policy challenges surrounding generative AI."}, {"source": "GENERATIVE AI", "target": "WEB SCRAPING", "label": "REFERENCES", "description": "Generative AI policy debates frequently reference web scraping as a key method for acquiring training data."}, {"source": "GENERATIVE AI", "target": "WARREN S. MCCULLOCH", "label": "REFERENCES", "description": "Warren S. McCulloch is referenced as an early 1940s contributor to the overarching field of artificial intelligence."}, {"source": "GENERATIVE AI", "target": "WALTER PITTS", "label": "REFERENCES", "description": "Walter Pitts is cited for foundational research in the 1940s that helped establish the field of artificial intelligence."}, {"source": "GENERATIVE AI", "target": "GENERATIVE ADVERSARIAL NETWORKS", "label": "PART_OF", "description": "Generative Adversarial Networks are a specific architecture used within the broader domain of generative AI."}, {"source": "GENERATIVE AI", "target": "DIFFUSION MODELS", "label": "PART_OF", "description": "Diffusion Models are a popular category of architectures used to construct generative AI systems."}, {"source": "GENERATIVE AI", "target": "COPYRIGHTED CONTENT", "label": "TRAINED_ON", "description": "Generative AI systems rely on being trained on copyrighted content across virtually every form of human expression to be useful."}, {"source": "GENERATIVE AI", "target": "GHOST WORKERS", "label": "PART_OF", "description": "Ghost workers provide indispensable human labor required to fine-tune and sanitize generative AI models."}, {"source": "GENERATIVE AI", "target": "COPYRIGHT POISONING", "label": "REFERENCES", "description": "Copyright poisoning describes the legal exposure created by adopting generative AI models with ambiguous dataset provenance."}, {"source": "GENERATIVE AI", "target": "ARTISTS", "label": "OPPOSES", "description": "Many artists express strong opposition to Generative AI due to fears of economic exploitation and copyright infringement."}, {"source": "GENERATIVE AI", "target": "GAMING PUBLISHERS", "label": "OPPOSES", "description": "Gaming publishers oppose or restrict the use of Generative AI to avoid legal risks and public backlash."}, {"source": "GENERATIVE AI", "target": "WEB-SCRAPING", "label": "TRAINED_ON", "description": "Generative AI systems rely on datasets compiled through web-scraping as training input for Machine Learning models."}, {"source": "WORLD INTELLECTUAL PROPERTY ORGANIZATION", "target": "INTELLECTUAL PROPERTY", "label": "REGULATES", "description": "WIPO leads international efforts to coordinate policy and governance surrounding intellectual property."}, {"source": "WORLD INTELLECTUAL PROPERTY ORGANIZATION", "target": "MEMBER STATES", "label": "PART_OF", "description": "Member States constitute the global membership of WIPO and inform the organization on national policy updates."}, {"source": "MEMBER STATES", "target": "WIPO CONVERSATION", "label": "REFERENCES", "description": "The WIPO Conversation includes open discussions and dialogues with Member States on IP and AI policy."}, {"source": "COPYRIGHT LAW", "target": "INTELLECTUAL PROPERTY", "label": "PART_OF", "description": "Copyright law and infrastructure form a core branch of the intellectual property system."}, {"source": "COPYRIGHT LAW", "target": "ADNAN MASOOD", "label": "REFERENCES", "description": "Adnan Masood discusses the implications of established copyright law on AI innovation."}, {"source": "COPYRIGHT LAW", "target": "GENERATIVE ARTIFICIAL INTELLIGENCE", "label": "REGULATES", "description": "Copyright Law provides the legal standards and legal frameworks governing generative AI output and training."}, {"source": "COPYRIGHT LAW", "target": "FAIR USE", "label": "PART_OF", "description": "Fair use is a legal defense and doctrine within copyright law applied to AI training practices."}, {"source": "COPYRIGHT LAW", "target": "YALE LAW JOURNAL", "label": "OPPOSES", "description": "The Yale Law Journal article argues that copyright law is not the right policy tool for governing generative AI."}, {"source": "COPYRIGHT LAW", "target": "OUROBOROS COPYRIGHT", "label": "PART_OF", "description": "Ouroboros copyright represents a conceptual consequence arising from the overexpansion of copyright law."}, {"source": "COPYRIGHT LAW", "target": "GAI", "label": "REGULATES", "description": "The text evaluates whether copyright law is the appropriate framework to regulate GAI models and outputs."}, {"source": "COPYRIGHT LAW", "target": "CARIOU V. PRINCE", "label": "REFERENCES", "description": "Cariou v. Prince is referenced as a relevant judicial precedent interpreting the bounds of copyright law regarding appropriation."}, {"source": "COPYRIGHT LAW", "target": "TAYLOR SWIFT", "label": "REFERENCES", "description": "Taylor Swift's contractual rights dispute is referenced to illustrate how copyright law often fails to protect actual creators."}, {"source": "INTELLECTUAL PROPERTY", "target": "COPYRIGHT", "label": "PART_OF", "description": "Copyright is identified as one of the five major subcategories that comprise intellectual property."}, {"source": "INTELLECTUAL PROPERTY", "target": "MEDIA CORPORATIONS", "label": "ADVOCATES_FOR", "description": "Media corporations depend on traditional intellectual property frameworks for economic profit."}, {"source": "INTELLECTUAL PROPERTY", "target": "HUMAN CREATORS", "label": "ADVOCATES_FOR", "description": "Human creators advocate for evolving intellectual property concepts to focus on equity, credit, and consent."}, {"source": "LARGE LANGUAGE MODELS", "target": "TRAINING DATA", "label": "TRAINED_ON", "description": "Large language models rely heavily on large amounts of training data collected from publicly available internet sources."}, {"source": "LARGE LANGUAGE MODELS", "target": "GPT-3", "label": "PART_OF", "description": "GPT-3 is cited as a prominent example belonging to the category of Large Language Models."}, {"source": "LARGE LANGUAGE MODELS", "target": "BERT", "label": "PART_OF", "description": "BERT is cited as an example belonging to the category of Large Language Models."}, {"source": "LARGE LANGUAGE MODELS", "target": "FOUNDATION MODELS", "label": "PART_OF", "description": "Large Language Models are considered a specific sub-category within the broader domain of Foundation Models."}, {"source": "TRAINING DATA", "target": "GAI", "label": "TRAINED_ON", "description": "GAI models learn visual representations, semantic outputs, and biases directly from training data."}, {"source": "WIPO", "target": "WIPO CONVERSATION", "label": "PART_OF", "description": "The WIPO Conversation series is an official initiative hosted and organized by WIPO."}, {"source": "WIPO", "target": "IP FRAMEWORKS", "label": "ADVOCATES_FOR", "description": "WIPO aims to synchronize legal standards and modernize international IP frameworks to address generative AI."}, {"source": "WIPO", "target": "AI-GENERATED WORKS", "label": "REFERENCES", "description": "WIPO studies the broader legal and technical implications of AI-generated works on international IP standards."}, {"source": "GENAI", "target": "WIPO CONVERSATION", "label": "REFERENCES", "description": "The WIPO Conversation explores solutions to copyright challenges brought to the IP system by GenAI."}, {"source": "WIPO CONVERSATION", "target": "AI INVENTIONS", "label": "REFERENCES", "description": "The Sixth Session of the WIPO Conversation specifically focused on AI inventions and patent granting standards."}, {"source": "PATENT SYSTEM", "target": "AI INVENTIONS", "label": "REGULATES", "description": "The patent system establishes standards and guidelines that regulate patent examination and granting for AI inventions."}, {"source": "NIXON PEABODY", "target": "IP FRAMEWORKS", "label": "REFERENCES", "description": "Nixon Peabody discusses the global trend toward establishing clearer legal IP frameworks for managing AI content."}, {"source": "US COPYRIGHT ACT OF 1976", "target": "US COPYRIGHT OFFICE", "label": "REFERENCES", "description": "The US Copyright Office references the US Copyright Act of 1976 to enforce human authorship requirements for AI content."}, {"source": "US COPYRIGHT OFFICE", "target": "GPAI", "label": "REGULATES", "description": "The US Copyright Office regulates AI-generated outputs by rejecting applications that lack human contribution."}, {"source": "US COPYRIGHT OFFICE", "target": "EDWARD LEE", "label": "OPPOSES", "description": "Edward Lee opposes the U.S. Copyright Office's categorical refusal to grant copyright protections to AI-generated works."}, {"source": "US COPYRIGHT OFFICE", "target": "GIOVANNI LOMONACO", "label": "OPPOSES", "description": "Giovanni LoMonaco opposes the U.S. Copyright Office's refusal to register copyright for AI-generated output."}, {"source": "US COPYRIGHT OFFICE", "target": "COPYRIGHT ACT", "label": "REGULATES", "description": "The U.S. Copyright Office regulates and administers registration policies framed under the Copyright Act."}, {"source": "US COPYRIGHT OFFICE", "target": "CHATGPT", "label": "REGULATES", "description": "The US Copyright Office issues guidance and policy statements regulating the copyright eligibility of works created using AI tools like ChatGPT."}, {"source": "US COPYRIGHT OFFICE", "target": "UNIVERSITY OF VIRGINIA", "label": "REFERENCES", "description": "The University of Virginia references statements, guidance, and reports published by the US Copyright Office."}, {"source": "US COPYRIGHT OFFICE", "target": "CONGRESSIONAL RESEARCH SERVICE", "label": "REFERENCES", "description": "The Congressional Research Service analyzes policies and legal issues surrounding AI copyright handled by the Copyright Office."}, {"source": "US COPYRIGHT OFFICE", "target": "DABUS", "label": "OPPOSES", "description": "The US Copyright Office denies copyright registration to AI-generated works that lack human authorship."}, {"source": "US COPYRIGHT OFFICE", "target": "AESTHETIC NEUTRALITY DOCTRINE", "label": "REFERENCES", "description": "The text examines how the Copyright Office's evaluation of creativity thresholds interacts with the aesthetic neutrality doctrine."}, {"source": "DABUS", "target": "USPTO", "label": "OPPOSES", "description": "The USPTO rejected patent applications listing DABUS as the sole inventor, holding that inventors must be natural persons."}, {"source": "DABUS", "target": "DABUS LITIGATION", "label": "REFERENCES", "description": "The DABUS litigation centers on legal questions surrounding whether DABUS can be recognized as a patent inventor."}, {"source": "DABUS", "target": "STEPHEN THALER", "label": "ADVOCATES_FOR", "description": "Stephen Thaler attempted to list his AI system, DABUS, as the official inventor on patent filings."}, {"source": "DABUS", "target": "DABUS CASE", "label": "PART_OF", "description": "DABUS is the core AI system involved in the landmark legal proceedings known as the DABUS case."}, {"source": "DABUS", "target": "D.C. FEDERAL DISTRICT COURT", "label": "OPPOSES", "description": "The D.C. Federal District Court issued a legal decision against declaring DABUS an autonomous author."}, {"source": "USPTO", "target": "Generative AI Models", "label": "REGULATES", "description": "The USPTO regulates patent protection criteria for inventions generated or assisted by AI systems."}, {"source": "USPTO", "target": "STEPHEN THALER", "label": "OPPOSES", "description": "The USPTO rejected Stephen Thaler's patent applications that designated DABUS as the inventor."}, {"source": "USPTO", "target": "GPAI", "label": "REGULATES", "description": "The USPTO establishes guidelines regulating patent applications derived from AI systems, requiring significant human input."}, {"source": "FAIR USE", "target": "BRANDON BUTLER", "label": "ADVOCATES_FOR", "description": "Brandon Butler published research analyzing how the fair use doctrine applies to artificial intelligence."}, {"source": "FAIR USE", "target": "MARK LEMLEY", "label": "ADVOCATES_FOR", "description": "Mark Lemley authored academic research arguing the legal relevance of fair use in AI training and foundation models."}, {"source": "FAIR USE", "target": "M. LEMLEY", "label": "REFERENCES", "description": "M. Lemley published 'Fair Learning', analyzing the application of fair use doctrines to machine learning."}, {"source": "FAIR USE", "target": "GOOGLE BOOKS CASE", "label": "REFERENCES", "description": "The 2015 Google Books case applied the fair use exemption to rule that scanning books to build an index was legal."}, {"source": "FAIR USE", "target": "AUTHORS GUILD V. GOOGLE, INC.", "label": "REFERENCES", "description": "Authors Guild v. Google, Inc. serves as a legal precedent regarding transformative fair-use analysis."}, {"source": "FAIR USE", "target": "YALE LAW JOURNAL", "label": "REFERENCES", "description": "The Yale Law Journal highlights fair use as a source of litigation uncertainty due to its reliance on ex-post judicial decisions."}, {"source": "Nixon Peabody", "target": "Human Oversight", "label": "ADVOCATES_FOR", "description": "Nixon Peabody advocates for businesses to implement policies requiring human oversight in AI workflows."}, {"source": "Generative AI Copyright Disclosure Act of 2024", "target": "Generative AI Models", "label": "REGULATES", "description": "The act mandates transparency by requiring developers of generative AI models to disclose their training datasets."}, {"source": "Generative AI Copyright Disclosure Act of 2024", "target": "US Congress", "label": "REFERENCES", "description": "US Congress introduced the Generative AI Copyright Disclosure Act of 2024 to address transparency in AI datasets."}, {"source": "Generative AI Copyright Disclosure Act of 2024", "target": "Copyrighted Material", "label": "REFERENCES", "description": "The proposed legislation addresses the unpermitted use of copyrighted works in AI model training."}, {"source": "US Copyright Office", "target": "Generative AI Models", "label": "REGULATES", "description": "The US Copyright Office sets rules regarding the copyright eligibility of content created by AI models."}, {"source": "US Copyright Office", "target": "Fair Use", "label": "REFERENCES", "description": "The US Copyright Office released reports outlining a fair use analysis specifically for AI training practices."}, {"source": "EU AI Act", "target": "Generative AI Models", "label": "REGULATES", "description": "The EU AI Act establishes transparency requirements and rules governing generative AI systems."}, {"source": "Generative AI Models", "target": "Copyrighted Material", "label": "TRAINED_ON", "description": "Generative AI models are frequently trained on unlicensed copyrighted material spark legal disputes."}, {"source": "Fair Use", "target": "Authors Guild v. Google, Inc.", "label": "REFERENCES", "description": "The ruling in Authors Guild v. Google, Inc. relied on the principle of fair use to hold that digitization was transformative."}, {"source": "AI-GENERATED WORKS", "target": "HUMAN INTELLECTUAL EFFORT", "label": "PART_OF", "description": "Human intellectual effort is a required creative element for AI-generated works to achieve copyright eligibility."}, {"source": "ADNAN MASOOD", "target": "GENERATIVE ARTIFICIAL INTELLIGENCE", "label": "REFERENCES", "description": "Adnan Masood analyzes the strategic and legal questions posed by generative artificial intelligence."}, {"source": "ADNAN MASOOD", "target": "MEDIUM", "label": "PART_OF", "description": "Adnan Masood authored and published this story on the Medium platform."}, {"source": "UNITED KINGDOM", "target": "UK SUPREME COURT", "label": "PART_OF", "description": "The UK Supreme Court is the highest judicial authority in the United Kingdom legal system."}, {"source": "DSM DIRECTIVE", "target": "TEXT AND DATA MINING", "label": "REGULATES", "description": "The DSM Directive introduces statutory framework exceptions and technical opt-outs for text and data mining."}, {"source": "DSM DIRECTIVE", "target": "CABINET DREYFUS", "label": "REFERENCES", "description": "Cabinet Dreyfus helps companies draft contractual clauses ensuring compliance with the DSM Directive."}, {"source": "DSM DIRECTIVE", "target": "TDM OPT-OUT", "label": "PART_OF", "description": "The TDM opt-out machine-readable signal mechanism is established under the DSM Directive."}, {"source": "DSM DIRECTIVE", "target": "DREYFUS & ASSOCIATES", "label": "REFERENCES", "description": "Dreyfus & Associates explains copyright protection options under the DSM Directive."}, {"source": "DABUS CASE", "target": "STEPHEN THALER", "label": "REFERENCES", "description": "The DABUS legal case directly references Stephen Thaler and his efforts to legally designate AI as an inventor."}, {"source": "STEPHEN THALER", "target": "EPO", "label": "OPPOSES", "description": "The European Patent Office refused Stephen Thaler's attempts to register patents designating an AI inventor."}, {"source": "STEPHEN THALER", "target": "UK SUPREME COURT", "label": "OPPOSES", "description": "The UK Supreme Court ruled against Stephen Thaler by confirming that only humans can legally qualify as inventors."}, {"source": "CABINET DREYFUS", "target": "DABUS CASE LAW", "label": "REFERENCES", "description": "Cabinet Dreyfus monitors DABUS case law to inform its IP strategy and advice."}, {"source": "DREYFUS & ASSOCIATES", "target": "UDRP", "label": "REFERENCES", "description": "Dreyfus & Associates references UDRP dispute costs for recovering AI-related domain names."}, {"source": "GPAI MODELS", "target": "AUTHOR", "label": "OPPOSES", "description": "Authors can oppose the technical extraction of their works by AI models using machine-readable signals."}, {"source": "UNITED STATES COPYRIGHT OFFICE", "target": "COPYRIGHT REGISTRATION GUIDANCE: WORKS CONTAINING MATERIAL GENERATED BY ARTIFICIAL INTELLIGENCE", "label": "REFERENCES", "description": "The United States Copyright Office published and references this guidance document outlining rules for registering AI-assisted creative works."}, {"source": "UNITED STATES COPYRIGHT OFFICE", "target": "COPYRIGHT", "label": "REGULATES", "description": "The United States Copyright Office determines eligibility and rules for copyright protections in the United States."}, {"source": "COPYRIGHT REGISTRATION GUIDANCE: WORKS CONTAINING MATERIAL GENERATED BY ARTIFICIAL INTELLIGENCE", "target": "WILLIAM SHAKESPEARE", "label": "REFERENCES", "description": "The US Copyright Office guidance document uses Shakespeare's poetic style as a hypothetical example of prompt text provided to AI systems."}, {"source": "COPYRIGHT", "target": "YALE LAW JOURNAL", "label": "REFERENCES", "description": "Yale Law Journal published an article discussing whether copyright is an appropriate policy tool for AI outputs."}, {"source": "COPYRIGHT", "target": "AESTHETIC NEUTRALITY", "label": "PART_OF", "description": "Aesthetic neutrality is a core doctrine that informs copyright jurisprudence."}, {"source": "DALL-E", "target": "AI-Generated Art", "label": "PART_OF", "description": "DALL-E is an AI system that is part of the broader domain of tools producing AI-generated art."}, {"source": "ARTIFICIAL INTELLIGENCE", "target": "REPORT ON COPYRIGHT AND ARTIFICIAL INTELLIGENCE", "label": "REFERENCES", "description": "The report provides analysis on copyright law and policy issues raised by artificial intelligence."}, {"source": "DIGITAL REPLICAS", "target": "REPORT PART 1: DIGITAL REPLICAS", "label": "REFERENCES", "description": "Part 1 of the report specifically addresses and analyzes digital replicas."}, {"source": "AI TRAINING", "target": "REPORT PART 3: GENERATIVE AI TRAINING", "label": "REFERENCES", "description": "Part 3 of the report addresses the use of copyrighted materials in AI training."}, {"source": "REPORT ON COPYRIGHT AND ARTIFICIAL INTELLIGENCE", "target": "REPORT PART 1: DIGITAL REPLICAS", "label": "PART_OF", "description": "Part 1 is the first installment of the U.S. Copyright Office's multi-part AI report."}, {"source": "REPORT ON COPYRIGHT AND ARTIFICIAL INTELLIGENCE", "target": "REPORT PART 2: COPYRIGHTABILITY", "label": "PART_OF", "description": "Part 2 is the second installment of the U.S. Copyright Office's multi-part AI report."}, {"source": "REPORT ON COPYRIGHT AND ARTIFICIAL INTELLIGENCE", "target": "REPORT PART 3: GENERATIVE AI TRAINING", "label": "PART_OF", "description": "Part 3 is the third installment of the U.S. Copyright Office's multi-part AI report."}, {"source": "EDWARD LEE", "target": "SANTA CLARA UNIVERSITY SCHOOL OF LAW", "label": "PART_OF", "description": "Edward Lee is a law professor affiliated with the Santa Clara University School of Law."}, {"source": "EDWARD LEE", "target": "ADMINISTRATIVE PROCEDURE ACT", "label": "REFERENCES", "description": "Edward Lee references the Administrative Procedure Act to argue the U.S. Copyright Office violated standard rulemaking procedures."}, {"source": "GIOVANNI LOMONACO", "target": "ELISABETH HAUB SCHOOL OF LAW", "label": "PART_OF", "description": "Giovanni LoMonaco is a JD candidate affiliated with the Elisabeth Haub School of Law."}, {"source": "GIOVANNI LOMONACO", "target": "COPYRIGHT ACT", "label": "ADVOCATES_FOR", "description": "Giovanni LoMonaco advocates for amending the Copyright Act to treat AI-generated works as works made for hire."}, {"source": "KATHERINE LEE", "target": "THE GENLAW CENTER", "label": "PART_OF", "description": "Katherine Lee is a co-founder of The GenLaw Center."}, {"source": "A. FEDER COOPER", "target": "THE GENLAW CENTER", "label": "PART_OF", "description": "A. Feder Cooper is a co-founder of The GenLaw Center."}, {"source": "JAMES GRIMMELMANN", "target": "CORNELL LAW SCHOOL", "label": "PART_OF", "description": "James Grimmelmann is a professor of law at Cornell Law School."}, {"source": "Matthew Sag", "target": "Emory University", "label": "PART_OF", "description": "Matthew Sag is affiliated with Emory University as a legal scholar."}, {"source": "Matthew Sag", "target": "Copyright Law", "label": "REFERENCES", "description": "Matthew Sag examines how AI training practices interact with fair use and copyright law."}, {"source": "Mark A. Lemley", "target": "Stanford Law School", "label": "PART_OF", "description": "Mark A. Lemley is a professor at Stanford Law School."}, {"source": "Mark A. Lemley", "target": "Copyright Law", "label": "REFERENCES", "description": "Mark A. Lemley analyzes the applicability and limits of copyright law in the context of generative AI outputs."}, {"source": "Nicola Lucchi", "target": "University of Pompeu Fabra", "label": "PART_OF", "description": "Nicola Lucchi is an academic researcher affiliated with Spain's University of Pompeu Fabra."}, {"source": "Nicola Lucchi", "target": "ChatGPT", "label": "REFERENCES", "description": "Nicola Lucchi uses ChatGPT as a case study to discuss generative AI legal issues."}, {"source": "OpenAI", "target": "ChatGPT", "label": "PART_OF", "description": "ChatGPT is a generative AI model developed and maintained by OpenAI."}, {"source": "OpenAI", "target": "Copyrighted Materials", "label": "TRAINED_ON", "description": "OpenAI has faced legal action for allegedly training its AI models on copyrighted materials without authorization."}, {"source": "ChatGPT", "target": "Copyrighted Materials", "label": "TRAINED_ON", "description": "Generative AI systems like ChatGPT rely on extensive training data that often includes copyrighted material."}, {"source": "ChatGPT", "target": "Copyright Law", "label": "REGULATES", "description": "Copyright law governs the legal boundaries regarding training inputs and outputs generated by systems like ChatGPT."}, {"source": "Copyright Law", "target": "Generative AI", "label": "REGULATES", "description": "Copyright Law serves as the primary legal framework currently being applied to regulate Generative AI training data and outputs."}, {"source": "Copyright Law", "target": "Yale Law Journal", "label": "REFERENCES", "description": "The Yale Law Journal article references Copyright Law to critique its suitability for regulating AI training compensation."}, {"source": "Copyright Law", "target": "Stable Diffusion", "label": "REGULATES", "description": "Copyright Law sets the legal framework governing whether outputs generated by Stable Diffusion constitute derivative works."}, {"source": "MATTHEW SAG", "target": "SNOOPY PROBLEM", "label": "REFERENCES", "description": "Matthew Sag authored a 2024 response explaining the Snoopy Problem in relation to AI copyright infringement."}, {"source": "NATIONAL INSTITUTES OF HEALTH", "target": "PMC", "label": "PART_OF", "description": "PMC is a digital repository archive managed and operated as part of the National Institutes of Health."}, {"source": "CHATGPT", "target": "YALE LAW JOURNAL", "label": "REFERENCES", "description": "The Yale Law Journal article references ChatGPT to illustrate expected outcomes in conversational AI."}, {"source": "LAION 5-B", "target": "LAION", "label": "PART_OF", "description": "LAION 5-B is an open dataset produced and released by the nonprofit organization LAION."}, {"source": "LAION", "target": "COMMONPOOL", "label": "PART_OF", "description": "CommonPool is a massive image-caption dataset collection released by LAION."}, {"source": "LAION", "target": "LAION-5B", "label": "PART_OF", "description": "LAION-5B is a dataset created and published by the non-profit organization LAION."}, {"source": "YALE LAW JOURNAL", "target": "DALL-E 2", "label": "REFERENCES", "description": "The Yale Law Journal article references DALL-E 2 as an example of text-to-image diffusion generation."}, {"source": "YALE LAW JOURNAL", "target": "LAION-5B", "label": "REFERENCES", "description": "The Yale Law Journal publication discusses the structure and technical details of the LAION-5B dataset."}, {"source": "YALE LAW JOURNAL", "target": "MICHELANGELO", "label": "REFERENCES", "description": "The publication references Michelangelo to draw a parallel between traditional art creation and diffusion-based image generation."}, {"source": "YALE LAW JOURNAL", "target": "CREATIVITY RESEARCH JOURNAL", "label": "REFERENCES", "description": "The article cites a study published in the Creativity Research Journal regarding the elements of creativity."}, {"source": "YALE LAW JOURNAL", "target": "ALAN M. TURING", "label": "REFERENCES", "description": "The article discusses arguments raised by Alan M. Turing regarding machine consciousness and creativity."}, {"source": "YALE LAW JOURNAL", "target": "BLEISTEIN V. DONALDSON LITHOGRAPHING CO.", "label": "REFERENCES", "description": "The article references Bleistein v. Donaldson Lithographing Co. in discussing copyright law doctrines."}, {"source": "YALE LAW JOURNAL", "target": "GAI", "label": "REFERENCES", "description": "The Yale Law Journal publication examines the social, ethical, and legal issues surrounding GAI."}, {"source": "INTELLECTUAL PROPERTY LAW", "target": "COPYRIGHTED WORKS", "label": "REGULATES", "description": "Intellectual property law sets the framework governing rights and ownership of copyrighted works."}, {"source": "INTELLECTUAL PROPERTY LAW", "target": "PUBLIC DOMAIN", "label": "PART_OF", "description": "The public domain forms a central balance within the broader intellectual property law ecosystem."}, {"source": "BIG TECH", "target": "LEGACY CREATIVE INTERMEDIARIES", "label": "OPPOSES", "description": "Big Tech and legacy creative intermediaries sit on opposing sides of major AI copyright litigation."}, {"source": "Yale Law Journal", "target": "Jerry Kaplan", "label": "REFERENCES", "description": "The Yale Law Journal article references Professor Jerry Kaplan's 2015 predictions on AI automation and labor asymmetry."}, {"source": "Generative AI", "target": "Large Language Models", "label": "PART_OF", "description": "Large Language Models are highlighted as a specific technical category within the broader field of Generative AI."}, {"source": "Moral Rights", "target": "Work-For-Hire Doctrine", "label": "OPPOSES", "description": "The Work-For-Hire Doctrine is used in practice to circumvent and override the moral rights of creative workers."}, {"source": "DIFFUSION MODELS", "target": "DALL\u00b7E 2", "label": "PART_OF", "description": "DALL\u00b7E 2 is an AI system implemented as a diffusion model."}, {"source": "DALL-E 2", "target": "CLIP", "label": "PART_OF", "description": "CLIP is an internal model architecture used by DALL-E 2 to recognize intersections between text and image pairs."}, {"source": "GOOGLE", "target": "BERT", "label": "PART_OF", "description": "BERT is a transformer-based language representation model created by Google."}, {"source": "GOOGLE", "target": "AUTHORS GUILD", "label": "FILED_AGAINST", "description": "Authors Guild initiated a copyright infringement suit against Google regarding book digitization."}, {"source": "GOOGLE", "target": "AUTHORS GUILD V. GOOGLE, INC.", "label": "DEFENDANT_IN", "description": "Google was the named defendant in the copyright suit Authors Guild v. Google, Inc."}, {"source": "GOOGLE", "target": "GOOGLE BOOKS PROJECT", "label": "PART_OF", "description": "The Google Books Project was created and operated by Google in collaboration with libraries."}, {"source": "STANFORD INSTITUTE FOR HUMAN-CENTERED ARTIFICIAL INTELLIGENCE", "target": "FOUNDATION MODELS", "label": "REFERENCES", "description": "The Stanford Institute for Human-Centered Artificial Intelligence coined and defined the term Foundation Models."}, {"source": "MARGARET BODEN", "target": "CREATIVITY", "label": "REFERENCES", "description": "Margaret Boden defines and categorizes creativity into three distinct computational types."}, {"source": "ALAN M. TURING", "target": "ADA LOVELACE", "label": "REFERENCES", "description": "Turing built upon Ada Lovelace's reasoning when questioning machine intelligence and capacity to surprise."}, {"source": "ALAN M. TURING", "target": "IMITATION GAME", "label": "ADVOCATES_FOR", "description": "Alan M. Turing introduced and advocated for the imitation game in his 1950 paper."}, {"source": "ADA LOVELACE", "target": "ANALYTICAL ENGINE", "label": "REFERENCES", "description": "Ada Lovelace authored an account describing the functional limitations of the Analytical Engine."}, {"source": "SIMON COLTON", "target": "THE PAINTING FOOL", "label": "ADVOCATES_FOR", "description": "Simon Colton developed and advocates for The Painting Fool to be taken seriously as a creative artist in its own right."}, {"source": "CREATIVITY", "target": "ORIGINALITY REQUIREMENT", "label": "REFERENCES", "description": "The legal originality requirement explicitly relies on the legal and conceptual definition of creativity."}, {"source": "AESTHETIC NEUTRALITY DOCTRINE", "target": "SOURCE INDIFFERENCE PRINCIPLE", "label": "REFERENCES", "description": "The proposed source indifference principle is derived from the established aesthetic neutrality doctrine in legal philosophy."}, {"source": "OLIVER WENDELL HOLMES", "target": "BLEISTEIN V. DONALDSON LITHOGRAPHING CO.", "label": "REFERENCES", "description": "Justice Oliver Wendell Holmes authored the famous majority quote in Bleistein v. Donaldson Lithographing Co."}, {"source": "BLEISTEIN V. DONALDSON LITHOGRAPHING CO.", "target": "AESTHETIC NEUTRALITY", "label": "REFERENCES", "description": "The legal case Bleistein v. Donaldson Lithographing Co. established the doctrine of aesthetic neutrality."}, {"source": "SOURCE INDIFFERENCE PRINCIPLE", "target": "ARTISTIC TURING TEST", "label": "REFERENCES", "description": "The source indifference principle applies when works pass the Artistic Turing Test because observers cannot distinguish between human and AI origins."}, {"source": "GAI", "target": "GHOST WORK", "label": "PART_OF", "description": "Ghost work consisting of data refinement and moderation forms a core stage in the GAI development pipeline."}, {"source": "GAI", "target": "DEEPFAKES", "label": "PART_OF", "description": "Deepfakes are a specific output category generated by GAI systems."}, {"source": "GAI", "target": "AI COMPANIONS", "label": "PART_OF", "description": "AI companions are a commercial product manifestation of GAI technology."}, {"source": "GAI", "target": "ARTISTS", "label": "OPPOSES", "description": "Artists oppose GAI due to concerns over artistic appropriation, lack of attribution, and labor displacement."}, {"source": "GAI", "target": "SAG-AFTRA", "label": "OPPOSES", "description": "SAG-AFTRA organized a strike partly to oppose the unchecked impact of GAI on entertainment workers' employment and contracts."}, {"source": "REBECCA GIBLIN", "target": "CHOKEPOINT CAPITALISM", "label": "ADVOCATES_FOR", "description": "Rebecca Giblin co-authored Chokepoint Capitalism to advocate for structural reforms benefiting creators in corporate markets."}, {"source": "CORY DOCTOROW", "target": "CHOKEPOINT CAPITALISM", "label": "ADVOCATES_FOR", "description": "Cory Doctorow co-authored Chokepoint Capitalism to critique market structures that strip creators of copyright benefits."}, {"source": "17 U.S.C. \u00a7 112", "target": "WILLIAM PATRY", "label": "REFERENCES", "description": "William Patry references statutory rules for ephemeral copies such as those in 17 U.S.C. \u00a7 112."}, {"source": "Authors Guild", "target": "Google", "label": "OPPOSES", "description": "Authors Guild opposed Google's unauthorized digitization and online indexing of copyrighted books."}, {"source": "Google", "target": "Authors Guild v. Google, Inc.", "label": "DEFENDANT_IN", "description": "Google was the defendant in the copyright lawsuit Authors Guild v. Google, Inc."}, {"source": "Stable Diffusion", "target": "LAION 5B", "label": "PART_OF", "description": "LAION 5B forms the core training dataset underlying the Stable Diffusion generative AI system."}, {"source": "Stable Diffusion", "target": "AI-Generated Art", "label": "PART_OF", "description": "Stable Diffusion is an AI system contributing to the growing landscape of AI-generated art."}, {"source": "HIQ LABS, INC. V. LINKEDIN CORP.", "target": "LINKEDIN CORP.", "label": "DEFENDANT_IN", "description": "LinkedIn Corp was the named defendant in the HiQ Labs, Inc. v. LinkedIn Corp. legal case."}, {"source": "HIQ LABS, INC. V. LINKEDIN CORP.", "target": "WEB-SCRAPING", "label": "REFERENCES", "description": "The court case HiQ Labs, Inc. v. LinkedIn Corp. directly references and examines the legality of web-scraping."}, {"source": "HIQ LABS, INC. V. LINKEDIN CORP.", "target": "UNITED STATES COURT OF APPEALS FOR THE NINTH CIRCUIT", "label": "REFERENCES", "description": "The Ninth Circuit Court of Appeals presided over and issued a ruling in HIQ Labs, Inc. v. LinkedIn Corp."}, {"source": "HIQ LABS, INC. V. LINKEDIN CORP.", "target": "COMPUTER FRAUD AND ABUSE ACT", "label": "REFERENCES", "description": "The HIQ Labs, Inc. v. LinkedIn Corp. case evaluated whether web-scraping constitutes a violation of the Computer Fraud and Abuse Act."}, {"source": "HIQ LABS, INC.", "target": "LINKEDIN CORP.", "label": "FILED_AGAINST", "description": "HiQ Labs engaged in litigation against LinkedIn Corp concerning access for web-scraping public data."}, {"source": "UNITED STATES COURT OF APPEALS FOR THE NINTH CIRCUIT", "target": "WEB-SCRAPING", "label": "REGULATES", "description": "The Ninth Circuit Court of Appeals ruled on legal boundaries regulating public web-scraping practices."}, {"source": "WEB-SCRAPING", "target": "COMPUTER FRAUD AND ABUSE ACT", "label": "REGULATES", "description": "The Computer Fraud and Abuse Act serves as a statutory mechanism historically applied to regulate or restrict web-scraping practices."}, {"source": "WEB-SCRAPING", "target": "NET NEUTRALITY", "label": "ADVOCATES_FOR", "description": "The principle of net neutrality supports non-discriminatory treatment for all web data flow, providing a theoretical basis against restricting web-scraped data for AI."}, {"source": "U.S. Copyright Office", "target": "Copyright Registration Guidance for AI Works", "label": "REGULATES", "description": "The U.S. Copyright Office issued legal policy guidance regulating copyright registration for AI-generated works."}, {"source": "U.S. Copyright Office", "target": "Stephen Thaler", "label": "OPPOSES", "description": "Stephen Thaler challenged decisions by the U.S. Copyright Office after his copyright registration request for AI art was denied."}, {"source": "Copyright Registration Guidance for AI Works", "target": "AI-Generated Art", "label": "REGULATES", "description": "The official guidance regulates how works containing AI-generated art are evaluated for copyright protection."}, {"source": "Ahmed Elgammal", "target": "Creative Adversarial Networks", "label": "ADVOCATES_FOR", "description": "Ahmed Elgammal co-developed and authored research advocating Creative Adversarial Networks as an AI art generation model."}, {"source": "Magic: The Gathering Publisher", "target": "AI-Generated Art", "label": "REFERENCES", "description": "The publisher admitted to using AI-generated art within a promotional image."}], "communities": 71};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COLOUR MAP
+// ═══════════════════════════════════════════════════════════════════════════
+const COLOR_MAP = {
+  ORGANIZATION: "#4ECDC4",
+  PERSON:       "#FF6B6B",
+  LEGISLATION:  "#60a5fa",
+  LEGAL_CASE:   "#FBBF24",
+  CONCEPT:      "#86efac",
+  GOVERNMENT:   "#c084fc",
+  AI_SYSTEM:    "#fb923c",
+  OTHER:        "#94a3b8",
+};
+
+function nodeColor(type) {
+  return COLOR_MAP[type] || COLOR_MAP.OTHER;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SETUP
+// ═══════════════════════════════════════════════════════════════════════════
+const svg       = d3.select("#graph");
+const root      = d3.select("#root");
+const tooltip   = document.getElementById("tooltip");
+const container = document.getElementById("graph-container");
+
+let W = container.clientWidth;
+let H = container.clientHeight;
+
+const zoom = d3.zoom()
+  .scaleExtent([0.1, 4])
+  .on("zoom", e => root.attr("transform", e.transform));
+svg.call(zoom);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FORCE SIMULATION
+// ═══════════════════════════════════════════════════════════════════════════
+const nodes = GRAPH_DATA.nodes.map(d => ({ ...d }));
+const links = GRAPH_DATA.links.map(d => ({ ...d }));
+
+const degreeMap = {};
+links.forEach(l => {
+  degreeMap[l.source] = (degreeMap[l.source] || 0) + 1;
+  degreeMap[l.target] = (degreeMap[l.target] || 0) + 1;
+});
+nodes.forEach(n => { n.degree = degreeMap[n.id] || 1; });
+
+const maxDeg = Math.max(...nodes.map(n => n.degree));
+const minDeg = Math.min(...nodes.map(n => n.degree));
+const nodeRadius = d => {
+  const t = (d.degree - minDeg) / (maxDeg - minDeg || 1);
+  return 8 + t * 28;
+};
+
+let simulation = d3.forceSimulation(nodes)
+  .force("link",      d3.forceLink(links).id(d => d.id).distance(120))
+  .force("charge",    d3.forceManyBody().strength(-300))
+  .force("center",    d3.forceCenter(W / 2, H / 2))
+  .force("collision", d3.forceCollide().radius(d => nodeRadius(d) + 6));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DRAW
+// ═══════════════════════════════════════════════════════════════════════════
+const linkGroup  = root.append("g").attr("class", "links");
+const labelGroup = root.append("g").attr("class", "edge-labels");
+const nodeGroup  = root.append("g").attr("class", "nodes");
+
+const link = linkGroup.selectAll("line")
+  .data(links)
+  .join("line")
+  .attr("class", "link")
+  .attr("marker-end", "url(#arrow)");
+
+const edgeLabel = labelGroup.selectAll("text")
+  .data(links)
+  .join("text")
+  .attr("class", "edge-label")
+  .text(d => d.label || "");
+
+const node = nodeGroup.selectAll("g")
+  .data(nodes)
+  .join("g")
+  .attr("class", "node")
+  .call(d3.drag()
+    .on("start", dragStart)
+    .on("drag",  dragged)
+    .on("end",   dragEnd));
+
+node.append("circle")
+  .attr("r", nodeRadius)
+  .attr("fill", d => nodeColor(d.type));
+
+node.append("text")
+  .attr("dy", d => nodeRadius(d) + 11)
+  .text(d => d.label.length > 20 ? d.label.slice(0, 18) + "…" : d.label)
+  .style("font-size", d => d.degree > 3 ? "11px" : "9px")
+  .style("opacity", d => d.degree > 2 ? 1 : 0.5);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TICK
+// ═══════════════════════════════════════════════════════════════════════════
+simulation.on("tick", () => {
+  link
+    .attr("x1", d => d.source.x)
+    .attr("y1", d => d.source.y)
+    .attr("x2", d => d.target.x)
+    .attr("y2", d => d.target.y);
+
+  edgeLabel
+    .attr("x", d => (d.source.x + d.target.x) / 2)
+    .attr("y", d => (d.source.y + d.target.y) / 2);
+
+  node.attr("transform", d => `translate(${d.x},${d.y})`);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TOOLTIP & INTERACTION
+// ═══════════════════════════════════════════════════════════════════════════
+let selectedNode = null;
+
+node.on("mouseover", (e, d) => {
+  const connections = links.filter(l =>
+    l.source.id === d.id || l.target.id === d.id
+  ).length;
+  tooltip.innerHTML = `
+    <div class="tt-name">${d.label}</div>
+    <div class="tt-type" style="color:${nodeColor(d.type)}">${d.type}</div>
+    ${d.description ? `<div class="tt-desc">${d.description}</div>` : ""}
+    <div class="tt-connections"><span>${connections}</span> connection${connections !== 1 ? "s" : ""}</div>
+  `;
+  tooltip.classList.add("visible");
+  positionTooltip(e);
+})
+.on("mousemove", positionTooltip)
+.on("mouseleave", () => tooltip.classList.remove("visible"))
+.on("click", (e, d) => {
+  e.stopPropagation();
+  selectedNode === d.id ? clearSelection() : selectNode(d);
+});
+
+svg.on("click", clearSelection);
+
+function positionTooltip(e) {
+  const rect = container.getBoundingClientRect();
+  let x = e.clientX - rect.left + 14;
+  let y = e.clientY - rect.top  - 10;
+  if (x + 280 > W) x = e.clientX - rect.left - 280;
+  tooltip.style.left = x + "px";
+  tooltip.style.top  = y + "px";
+}
+
+function selectNode(d) {
+  selectedNode = d.id;
+  const connectedIds = new Set([d.id]);
+  links.forEach(l => {
+    if (l.source.id === d.id) connectedIds.add(l.target.id);
+    if (l.target.id === d.id) connectedIds.add(l.source.id);
+  });
+  node.classed("selected", n => n.id === d.id);
+  node.classed("dimmed",   n => !connectedIds.has(n.id));
+  link.classed("highlighted", l => l.source.id === d.id || l.target.id === d.id);
+  link.classed("dimmed",      l => l.source.id !== d.id && l.target.id !== d.id);
+}
+
+function clearSelection() {
+  selectedNode = null;
+  node.classed("selected dimmed", false);
+  link.classed("highlighted dimmed", false);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DRAG
+// ═══════════════════════════════════════════════════════════════════════════
+function dragStart(e, d) {
+  if (!e.active) simulation.alphaTarget(0.3).restart();
+  d.fx = d.x; d.fy = d.y;
+}
+function dragged(e, d)  { d.fx = e.x; d.fy = e.y; }
+function dragEnd(e, d)  {
+  if (!e.active) simulation.alphaTarget(0);
+  d.fx = null; d.fy = null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LEGEND
+// ═══════════════════════════════════════════════════════════════════════════
+const typeCounts = {};
+nodes.forEach(n => { typeCounts[n.type] = (typeCounts[n.type] || 0) + 1; });
+
+const hiddenTypes = new Set();
+const legendEl = document.getElementById("legend");
+
+Object.entries(COLOR_MAP).forEach(([type, color]) => {
+  if (!typeCounts[type]) return;
+  const item = document.createElement("div");
+  item.className = "legend-item";
+  item.innerHTML = `
+    <div class="legend-dot" style="background:${color}"></div>
+    <span class="legend-name">${type}</span>
+    <span class="legend-count">${typeCounts[type]}</span>
+  `;
+  item.addEventListener("click", () => {
+    if (hiddenTypes.has(type)) {
+      hiddenTypes.delete(type);
+      item.classList.remove("disabled");
+    } else {
+      hiddenTypes.add(type);
+      item.classList.add("disabled");
+    }
+    applyTypeFilter();
+  });
+  legendEl.appendChild(item);
+});
+
+function applyTypeFilter() {
+  node.style("display", d => hiddenTypes.has(d.type) ? "none" : null);
+  link.style("display", d => {
+    const sHidden = hiddenTypes.has(d.source.type);
+    const tHidden = hiddenTypes.has(d.target.type);
+    return sHidden || tHidden ? "none" : null;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SEARCH
+// ═══════════════════════════════════════════════════════════════════════════
+document.getElementById("search").addEventListener("input", e => {
+  const q = e.target.value.toLowerCase().trim();
+  if (!q) { clearSelection(); return; }
+  const match = nodes.find(n => n.label.toLowerCase().includes(q));
+  if (match) selectNode(match);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════════════════════════════════════════
+document.getElementById("link-distance").addEventListener("input", e => {
+  simulation.force("link").distance(+e.target.value);
+  simulation.alpha(0.3).restart();
+});
+
+document.getElementById("charge").addEventListener("input", e => {
+  simulation.force("charge").strength(+e.target.value);
+  simulation.alpha(0.3).restart();
+});
+
+document.getElementById("label-threshold").addEventListener("input", e => {
+  const threshold = +e.target.value;
+  edgeLabel.classed("visible", d => {
+    const minDeg = Math.min(d.source.degree || 1, d.target.degree || 1);
+    return minDeg >= threshold;
+  });
+});
+
+document.getElementById("btn-reset").addEventListener("click", () => {
+  svg.transition().duration(500).call(
+    zoom.transform, d3.zoomIdentity.translate(0, 0).scale(1)
+  );
+});
+
+document.getElementById("btn-all").addEventListener("click", () => {
+  hiddenTypes.clear();
+  document.querySelectorAll(".legend-item").forEach(el => el.classList.remove("disabled"));
+  applyTypeFilter();
+  clearSelection();
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STATS
+// ═══════════════════════════════════════════════════════════════════════════
+document.getElementById("stat-nodes").textContent = nodes.length;
+document.getElementById("stat-edges").textContent = links.length;
+document.getElementById("stat-communities").textContent =
+  GRAPH_DATA.communities !== undefined ? GRAPH_DATA.communities : "—";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RESIZE
+// ═══════════════════════════════════════════════════════════════════════════
+window.addEventListener("resize", () => {
+  W = container.clientWidth;
+  H = container.clientHeight;
+  simulation.force("center", d3.forceCenter(W / 2, H / 2));
+  simulation.alpha(0.1).restart();
+});
+</script>
+</body>
+</html>
